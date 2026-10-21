@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from trademarkimage import i18n
+from trademarkimage import __version__, i18n
 from trademarkimage.analyzer import Prop, analyze
 from trademarkimage.converter import SAVE_FORMATS
 from trademarkimage.criteria import IMAGE_TYPES, Criteria, CriteriaError
@@ -156,6 +156,43 @@ def test_gui_language_switch_keeps_state(app, make_image):
     assert app.prop_buttons[Prop.RESOLUTION].cget("bg").lower() == "#c62828"
     assert app.criteria_panel.cget("text") == "Criteria"
     assert app.drop_zone.cget("text") == "bad.png"
+
+
+@pytest.mark.parametrize("language, button, title, copyright_line, source", [
+    ("hu", "Névjegy", "Verzió", "(c) Mentler Gyula SBGK.HU", "forrás:"),
+    ("en", "About", "Version", "(c) Gyula Mentler SBGK.HU", "source:"),
+])
+def test_gui_about_window(app, language, button, title, copyright_line, source):
+    from trademarkimage.about import SOURCE_URL
+    from trademarkimage.gui import AboutDialog
+
+    app.set_language(language)
+    # The About button is in the upper left corner.
+    assert app.about_button.cget("text") == button
+    assert app.about_button.grid_info()["row"] == 0 and app.about_button.grid_info()["column"] == 0
+    assert app.about_button.grid_info()["sticky"] == "w"
+    seen = {}
+
+    def inspect():
+        dialog = next(w for w in app.root.winfo_children() if isinstance(w, AboutDialog))
+
+        def texts(widget):
+            for child in widget.winfo_children():
+                if "text" in child.keys():
+                    yield str(child.cget("text"))
+                yield from texts(child)
+
+        seen["title"] = dialog.title()
+        seen["texts"] = list(texts(dialog))
+        seen["link"] = dialog.link.cget("text")
+        dialog.destroy()
+
+    app.root.after(300, inspect)
+    app.about_button.invoke()
+    assert seen["title"] == title
+    assert copyright_line in seen["texts"] and source in seen["texts"]
+    assert f"{tr('app.title')} {__version__}" in seen["texts"]
+    assert seen["link"] == SOURCE_URL
 
 
 def test_gui_type_dialog_uses_translated_names(app, make_image):

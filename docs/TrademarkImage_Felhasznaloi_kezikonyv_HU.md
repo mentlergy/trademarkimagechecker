@@ -23,6 +23,7 @@ A program magyarul indul. A nyelv a főablak jobb felső sarkában, a Nyelv list
 
 | Terület | Leírás |
 |---|---|
+| Névjegy (bal felső sarok) | Megjeleníti a program verziószámát, a szerzői jogot és a forráskód címét (a cím kattintható). |
 | Nyelv (jobb felső sarok) | A felület nyelvének kiválasztása (Magyar / English). |
 | Feltételek (bal oldal) | A feltételek beállítása, valamint az Alkalmaz, a Feltételek betöltése... és a Feltételek mentése másként... gomb. Alul látható, melyik fájlból származnak a feltételek. |
 | Képterület (jobb felül) | Ide kell behúzni a képet; betöltés után a kép előnézete látszik. |
@@ -139,11 +140,11 @@ TrademarkImage.exe --locals sajat_szovegek.json
 | --locals FÁJL | Saját szövegfájl (alapértelmezés: locals.json az indítási könyvtárban, ha van). |
 | KÉP | Induláskor megnyitandó képfájl. |
 | -h, --help | Megjeleníti a paraméterek leírását. Angolul: --lang en --help. |
-| --version | Megjeleníti a program verziószámát. |
+| --version | Megjeleníti a verzióablakot (ugyanazt, mint a Névjegy gomb). |
 
 - Az érték egyenlőségjellel is megadható (pl. --lang=en). A szóközt tartalmazó fájlneveket tegye idézőjelek közé.
 - Az indítási könyvtár dupla kattintásos indításnál az exe mappája. Parancsikon esetén a parancsikon „Indítás helye” mezője adja meg.
-- A súgó egy külön ablakban, a verziószám egy üzenetablakban jelenik meg; ezután a program kilép.
+- A súgó egy külön ablakban, a verziószám a Névjegy ablakban jelenik meg; ezután a program kilép.
 
 #### 10.1 Hibás paraméterek
 

@@ -7,6 +7,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from . import __version__, i18n
+from .about import about_text
 from .analyzer import ImageError, analyze
 from .criteria import DEFAULT_CONFIG_NAME, Criteria, CriteriaError, load_criteria
 from .i18n import LOCALS_FILE_NAME, LocalizationError, tr
@@ -163,7 +164,7 @@ def process_command_line(argv: list[str], cwd: Path | None = None) -> Startup:
     if options.help:
         return Startup("help", help_text())
     if options.version:
-        return Startup("version", f"{tr('app.title')} {__version__}")
+        return Startup("version", about_text())
 
     criteria, config_path = load_startup_criteria(options.config, cwd, errors, warnings)
     if options.image:
@@ -192,12 +193,12 @@ def report(startup: Startup) -> None:
     if stream is not None:
         print(startup.message, file=stream)
         return
-    from .gui import show_message, show_text_window
+    from .gui import show_about_window, show_message, show_text_window
 
     if startup.action == "help":
         show_text_window(tr("cli.help.title"), startup.message)
     elif startup.action == "version":
-        show_message("info", tr("cli.version.title"), startup.message)
+        show_about_window()
     else:
         show_message("error", tr("cli.error.title"), startup.message)
 

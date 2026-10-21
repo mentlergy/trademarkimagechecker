@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 import tkinter as tk
+import webbrowser
 from pathlib import Path
 from tkinter import filedialog, messagebox, simpledialog, ttk
 
 from PIL import Image, ImageOps, ImageTk
 
 from . import i18n
+from .about import SOURCE_URL, about_lines
 from .analyzer import ImageError, Prop, analyze, check_image, describe_requirement, format_value
 from .converter import (SAVE_FORMATS, ConversionError, compatible_formats, convert_image, default_save_format,
                         format_for_extension, is_compatible)
@@ -64,6 +66,46 @@ def show_text_window(title: str, text: str) -> None:
     for key in ("<Return>", "<Escape>"):
         root.bind(key, lambda _e: root.destroy())
     root.mainloop()
+
+
+class AboutDialog(tk.Toplevel):
+    """The version window: name and version, copyright and a clickable source link."""
+
+    def __init__(self, parent: tk.Misc):
+        super().__init__(parent)
+        self.title(tr("cli.version.title"))
+        self.resizable(False, False)
+        if parent.winfo_viewable():
+            self.transient(parent)
+        name, copyright_line, _ = about_lines()
+        body = ttk.Frame(self, padding=(20, 16, 20, 8))
+        body.pack(fill="both")
+        ttk.Label(body, text=name, font=("Segoe UI", 12, "bold")).pack(anchor="w")
+        ttk.Label(body, text=copyright_line).pack(anchor="w", pady=(8, 0))
+        source = ttk.Frame(body)
+        source.pack(anchor="w", pady=(2, 0))
+        ttk.Label(source, text=tr("about.source")).pack(side="left")
+        self.link = tk.Label(source, text=SOURCE_URL, fg="#0645ad", cursor="hand2", font=("Segoe UI", 9, "underline"))
+        self.link.pack(side="left", padx=(4, 0))
+        self.link.bind("<Button-1>", lambda _e: webbrowser.open(SOURCE_URL))
+        ok = ttk.Button(self, text=tr("button.ok"), command=self.destroy)
+        ok.pack(pady=(4, 12))
+        ok.focus_set()
+        for key in ("<Return>", "<Escape>"):
+            self.bind(key, lambda _e: self.destroy())
+
+    def show(self) -> None:
+        """Wait until the window is closed."""
+        self.grab_set()
+        self.wait_window()
+
+
+def show_about_window() -> None:
+    """The version window without a main window (--version in the exe, which has no console)."""
+    root = tk.Tk()
+    root.withdraw()
+    AboutDialog(root).show()
+    root.destroy()
 
 
 def same_criteria(a: Criteria, b: Criteria) -> bool:
@@ -231,8 +273,10 @@ class App:
         main.columnconfigure(1, weight=1)
         main.rowconfigure(1, weight=1)
 
+        self.about_button = ttk.Button(main, text=tr("about.button"), command=self.show_about)
+        self.about_button.grid(row=0, column=0, sticky="w", pady=(0, 6))
         language_bar = ttk.Frame(main)
-        language_bar.grid(row=0, column=0, columnspan=2, sticky="e", pady=(0, 6))
+        language_bar.grid(row=0, column=1, sticky="e", pady=(0, 6))
         ttk.Label(language_bar, text=tr("language.label")).pack(side="left", padx=(0, 4))
         self.language_names = i18n.languages()
         self.language_var = tk.StringVar(main, value=self.language_names.get(i18n.get_language(), ""))
@@ -288,6 +332,9 @@ class App:
         self.build_ui()
 
     # ----- dialogs (separate methods so tests can replace them) -----
+
+    def show_about(self) -> None:
+        AboutDialog(self.root).show()
 
     def ask_yes_no(self, title: str, message: str) -> bool:
         return messagebox.askyesno(title, message, parent=self.root)

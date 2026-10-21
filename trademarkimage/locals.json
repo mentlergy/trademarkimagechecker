@@ -15,6 +15,9 @@
       "language.label": "Nyelv:",
       "button.ok": "OK",
       "button.cancel": "Mégse",
+      "about.button": "Névjegy",
+      "about.copyright": "(c) Mentler Gyula SBGK.HU",
+      "about.source": "forrás:",
 
       "prop.file_size": "Fájlméret",
       "prop.width": "Szélesség",
@@ -184,6 +187,9 @@
       "language.label": "Language:",
       "button.ok": "OK",
       "button.cancel": "Cancel",
+      "about.button": "About",
+      "about.copyright": "(c) Gyula Mentler SBGK.HU",
+      "about.source": "source:",
 
       "prop.file_size": "File size",
       "prop.width": "Width",

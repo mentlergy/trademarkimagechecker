@@ -89,9 +89,13 @@ def test_help_wins_over_errors(hungarian, files):
 def test_version(hungarian, files):
     result = process_command_line(["--version"], cwd=files["dir"])
     assert result.action == "version" and result.exit_code == 0
-    assert result.message == f"Védjegykép-ellenőrző {__version__}"
-    assert process_command_line(["--version", "--lang", "en"], cwd=files["dir"]).message == \
-        f"Trademark Image Checker {__version__}"
+    assert result.message == (f"Védjegykép-ellenőrző {__version__}\n"
+                              "(c) Mentler Gyula SBGK.HU\n"
+                              "forrás: https://github.com/mentlergy/trademarkimagechecker.git")
+    assert process_command_line(["--version", "--lang", "en"], cwd=files["dir"]).message == (
+        f"Trademark Image Checker {__version__}\n"
+        "(c) Gyula Mentler SBGK.HU\n"
+        "source: https://github.com/mentlergy/trademarkimagechecker.git")
 
 
 # ----- checking the values -----
@@ -185,7 +189,8 @@ def test_main_version_prints_and_exits(files, monkeypatch, capsys):
     with pytest.raises(SystemExit) as exit_info:
         main(["--version"])
     assert exit_info.value.code == 0
-    assert capsys.readouterr().out.strip() == f"Trademark Image Checker {__version__}"
+    out = capsys.readouterr().out
+    assert out.startswith(f"Trademark Image Checker {__version__}\n") and "(c) Gyula Mentler SBGK.HU" in out
 
 
 def test_main_error_goes_to_stderr(files, monkeypatch, capsys):
@@ -199,7 +204,7 @@ def test_main_error_goes_to_stderr(files, monkeypatch, capsys):
 
 @pytest.mark.parametrize("argv, expected", [
     (["--help"], ("text", "Command line parameters")),
-    (["--version"], ("info", "Version")),
+    (["--version"], ("about", "")),
     (["--lang", "xx"], ("error", "Command line error")),
 ])
 def test_without_console_output_goes_to_a_window(files, monkeypatch, argv, expected):
@@ -209,6 +214,7 @@ def test_without_console_output_goes_to_a_window(files, monkeypatch, argv, expec
     shown = []
     monkeypatch.setattr(gui, "show_text_window", lambda title, text: shown.append(("text", title, text)))
     monkeypatch.setattr(gui, "show_message", lambda kind, title, text: shown.append((kind, title, text)))
+    monkeypatch.setattr(gui, "show_about_window", lambda: shown.append(("about", "", "")))
     monkeypatch.setattr(sys, "stdout", None)
     monkeypatch.setattr(sys, "stderr", None)
     monkeypatch.chdir(files["dir"])

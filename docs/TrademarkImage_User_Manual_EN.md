@@ -23,6 +23,7 @@ Trademark Image Checker examines an image file and tells whether it meets the co
 
 | Area | Description |
 |---|---|
+| About (top left corner) | Shows the version number, the copyright and the address of the source code (the address can be clicked). |
 | Language (top right corner) | Selects the language of the user interface (Magyar / English). |
 | Criteria (left side) | Setting the criteria, with the Apply, Load criteria... and Save criteria as... buttons. The bottom line shows which file the criteria come from. |
 | Image area (top right) | Drop the image here; after loading, a preview of the image is shown. |
@@ -140,11 +141,11 @@ TrademarkImage.exe --locals my_texts.json
 | --locals FILE | Your own text file (default: locals.json in the startup folder, if present). |
 | IMAGE | Image file to open at start. |
 | -h, --help | Shows the description of the parameters. In English: --lang en --help. |
-| --version | Shows the version number of the program. |
+| --version | Shows the version window (the same as the About button). |
 
 - A value can also be given with an equals sign (e.g. --lang=en). Put file names containing spaces in quotation marks.
 - When the program is started by double-click, the startup folder is the folder of the exe. For a shortcut it is the "Start in" field of the shortcut.
-- The help is shown in a separate window and the version number in a message box; then the program exits.
+- The help is shown in a separate window and the version number in the About window; then the program exits.
 
 #### 10.1 Wrong parameters
 

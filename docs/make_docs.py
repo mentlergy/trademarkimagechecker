@@ -225,7 +225,7 @@ dist\\TrademarkImage.exe [options] [IMAGE]
         ["IMAGE", "Optional image file opened at start (also works by dropping a file on the exe icon)."],
         ["-h, --help, /?", "Shows the description of the parameters in the selected language "
                            "(e.g. --lang en --help) and exits."],
-        ["--version", "Shows the program name and version number and exits."],
+        ["--version", "Shows the version window (name, version, copyright, source URL) and exits."],
     ], widths=[100, 370])
     d.h2("2.5 Command line checking and messages")
     d.p("The command line is parsed by app.parse_args (not argparse, so that every message can be localized). "
@@ -246,7 +246,7 @@ dist\\TrademarkImage.exe [options] [IMAGE]
     ])
     d.p("Output: when the program has a console (run from source with python), help and version are printed to "
         "standard output and errors to standard error. The Windows exe is a GUI program without a console, so "
-        "there the help is shown in a window (fixed-width font) and the version and the errors in message "
+        "there the help is shown in a window (fixed-width font), the version in the same window as the About button (gui.AboutDialog) and the errors in message "
         "boxes.")
 
     d.h1("3. Architecture")
@@ -268,6 +268,7 @@ dist\\TrademarkImage.exe [options] [IMAGE]
         ["i18n.py", "Localization: loads locals.json, merges extra files, keeps the current language, "
                     "tr(key, **values) returns a translated text with its placeholders filled in."],
         ["locals.json", "All user visible texts of every language (package data, also bundled into the exe)."],
+        ["about.py", "Program identity: name and version, localized copyright line, source URL; used by the About button and --version."],
         ["app.py", "Command line parsing and checking, help/version/error output, localization set-up and "
                    "loading of the startup criteria; creates the window."],
         ["__main__.py, run_trademarkimage.py", "Entry points (python -m trademarkimage, PyInstaller)."],
@@ -426,7 +427,7 @@ dist\\TrademarkImage.exe [options] [IMAGE]
 
     d.h1("9. Tests")
     d.code(".venv\\Scripts\\python.exe -m pytest -q")
-    d.p("149 automated tests (tests directory) cover:")
+    d.p("151 automated tests (tests directory) cover:")
     d.bullets([
         "test_criteria.py - defaults, JSON round trip, partial files, every validation error.",
         "test_analyzer.py - mode classification, DPI reading and rounding, missing DPI, EXIF orientation, "
@@ -543,6 +544,7 @@ def user_guide_hu(Doc):
 
     d.h2("3. A főablak részei")
     d.table(["Terület", "Leírás"], [
+        ["Névjegy (bal felső sarok)", "Megjeleníti a program verziószámát, a szerzői jogot és a forráskód címét (a cím kattintható)."],
         ["Nyelv (jobb felső sarok)", "A felület nyelvének kiválasztása (Magyar / English)."],
         ["Feltételek (bal oldal)", "A feltételek beállítása, valamint az Alkalmaz, a Feltételek betöltése... és a "
                                    "Feltételek mentése másként... gomb. Alul látható, melyik fájlból "
@@ -682,14 +684,14 @@ TrademarkImage.exe --locals sajat_szovegek.json
         ["--locals FÁJL", "Saját szövegfájl (alapértelmezés: locals.json az indítási könyvtárban, ha van)."],
         ["KÉP", "Induláskor megnyitandó képfájl."],
         ["-h, --help", "Megjeleníti a paraméterek leírását. Angolul: --lang en --help."],
-        ["--version", "Megjeleníti a program verziószámát."],
+        ["--version", "Megjeleníti a verzióablakot (ugyanazt, mint a Névjegy gomb)."],
     ], widths=[110, 360])
     d.bullets([
         "Az érték egyenlőségjellel is megadható (pl. --lang=en). A szóközt tartalmazó fájlneveket tegye "
         "idézőjelek közé.",
         "Az indítási könyvtár dupla kattintásos indításnál az exe mappája. Parancsikon esetén a parancsikon "
         "„Indítás helye” mezője adja meg.",
-        "A súgó egy külön ablakban, a verziószám egy üzenetablakban jelenik meg; ezután a program kilép.",
+        "A súgó egy külön ablakban, a verziószám a Névjegy ablakban jelenik meg; ezután a program kilép.",
     ])
     d.h3("10.1 Hibás paraméterek")
     d.p("A program induláskor ellenőrzi a paramétereket. Ha valamelyik hibás, egy hibaüzenetben felsorolja az "
@@ -811,6 +813,7 @@ def user_guide_en(Doc):
 
     d.h2("3. The main window")
     d.table(["Area", "Description"], [
+        ["About (top left corner)", "Shows the version number, the copyright and the address of the source code (the address can be clicked)."],
         ["Language (top right corner)", "Selects the language of the user interface (Magyar / English)."],
         ["Criteria (left side)", "Setting the criteria, with the Apply, Load criteria... and Save criteria as... "
                                  "buttons. The bottom line shows which file the criteria come from."],
@@ -948,14 +951,14 @@ TrademarkImage.exe --locals my_texts.json
         ["--locals FILE", "Your own text file (default: locals.json in the startup folder, if present)."],
         ["IMAGE", "Image file to open at start."],
         ["-h, --help", "Shows the description of the parameters. In English: --lang en --help."],
-        ["--version", "Shows the version number of the program."],
+        ["--version", "Shows the version window (the same as the About button)."],
     ], widths=[110, 360])
     d.bullets([
         "A value can also be given with an equals sign (e.g. --lang=en). Put file names containing spaces in "
         "quotation marks.",
         "When the program is started by double-click, the startup folder is the folder of the exe. For a "
         "shortcut it is the \"Start in\" field of the shortcut.",
-        "The help is shown in a separate window and the version number in a message box; then the program "
+        "The help is shown in a separate window and the version number in the About window; then the program "
         "exits.",
     ])
     d.h3("10.1 Wrong parameters")

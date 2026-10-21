@@ -51,7 +51,7 @@ dist\TrademarkImage.exe [options] [IMAGE]
 | --locals FILE | Additional localization file merged over the built-in texts. Default: locals.json in the current directory, if it exists. |
 | IMAGE | Optional image file opened at start (also works by dropping a file on the exe icon). |
 | -h, --help, /? | Shows the description of the parameters in the selected language (e.g. --lang en --help) and exits. |
-| --version | Shows the program name and version number and exits. |
+| --version | Shows the version window (name, version, copyright, source URL) and exits. |
 
 ### 2.5 Command line checking and messages
 
@@ -64,7 +64,7 @@ The command line is parsed by app.parse_args (not argparse, so that every messag
 - All errors are reported together, in the selected language, followed by a hint to use --help. The program then exits with exit code 2 without opening the window. Help and version exit with code 0.
 - Problems with the implicit criterias.json / locals.json of the startup directory are not command line errors: they produce a warning in the window and the defaults are used.
 
-Output: when the program has a console (run from source with python), help and version are printed to standard output and errors to standard error. The Windows exe is a GUI program without a console, so there the help is shown in a window (fixed-width font) and the version and the errors in message boxes.
+Output: when the program has a console (run from source with python), help and version are printed to standard output and errors to standard error. The Windows exe is a GUI program without a console, so there the help is shown in a window (fixed-width font), the version in the same window as the About button (gui.AboutDialog) and the errors in message boxes.
 
 ## 3. Architecture
 
@@ -79,6 +79,7 @@ The program is a Python package (trademarkimage) with a strict separation betwee
 | gui.py | Tkinter UI: App main window (with language selector), CriteriaPanel, ValueDialog; drag and drop via tkinterdnd2. |
 | i18n.py | Localization: loads locals.json, merges extra files, keeps the current language, tr(key, \*\*values) returns a translated text with its placeholders filled in. |
 | locals.json | All user visible texts of every language (package data, also bundled into the exe). |
+| about.py | Program identity: name and version, localized copyright line, source URL; used by the About button and --version. |
 | app.py | Command line parsing and checking, help/version/error output, localization set-up and loading of the startup criteria; creates the window. |
 | __main__.py, run_trademarkimage.py | Entry points (python -m trademarkimage, PyInstaller). |
 
@@ -206,7 +207,7 @@ Adding a language: copy the "en" block in locals.json, change its code (e.g. "de
 .venv\Scripts\python.exe -m pytest -q
 ```
 
-149 automated tests (tests directory) cover:
+151 automated tests (tests directory) cover:
 
 - test_criteria.py - defaults, JSON round trip, partial files, every validation error.
 - test_analyzer.py - mode classification, DPI reading and rounding, missing DPI, EXIF orientation, invalid files, boundary values of every criterion.
