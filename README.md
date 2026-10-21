@@ -46,7 +46,8 @@ Produces `dist\TrademarkImage.exe`, which runs on Windows without Python.
 | Document | Markdown | Word |
 |---|---|---|
 | Technical documentation - design, requirements, installation (English) | [md](docs/TrademarkImage_Technical_Documentation_EN.md) | [docx](docs/TrademarkImage_Technical_Documentation_EN.docx) |
-| Felhasználói kézikönyv - user guide (Hungarian) | [md](docs/TrademarkImage_Felhasznaloi_kezikonyv_HU.md) | [docx](docs/TrademarkImage_Felhasznaloi_kezikonyv_HU.docx) |
+| User manual (English) | [md](docs/TrademarkImage_User_Manual_EN.md) | [docx](docs/TrademarkImage_User_Manual_EN.docx) |
+| Felhasználói kézikönyv - user manual (Hungarian) | [md](docs/TrademarkImage_Felhasznaloi_kezikonyv_HU.md) | [docx](docs/TrademarkImage_Felhasznaloi_kezikonyv_HU.docx) |
 
 Both formats are generated from the same source; edit `docs/make_docs.py` and regenerate them with
 `.venv\Scripts\python.exe docs\make_docs.py`.
