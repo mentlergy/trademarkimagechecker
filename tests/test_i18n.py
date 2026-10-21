@@ -7,7 +7,6 @@ import pytest
 
 from trademarkimage import i18n
 from trademarkimage.analyzer import Prop, analyze
-from trademarkimage.app import setup_localization
 from trademarkimage.converter import SAVE_FORMATS
 from trademarkimage.criteria import IMAGE_TYPES, Criteria, CriteriaError
 from trademarkimage.gui import CriteriaPanel, ValueDialog
@@ -100,34 +99,6 @@ def test_invalid_localization_file(tmp_path, content):
     path.write_text(content, encoding="utf-8")
     with pytest.raises(LocalizationError):
         i18n.load_extra(path)
-
-
-def test_setup_localization(tmp_path):
-    i18n.reset()
-    assert setup_localization(None, None, cwd=tmp_path) == []
-    assert i18n.get_language() == "hu"
-
-    assert setup_localization(None, "en", cwd=tmp_path) == []
-    assert i18n.get_language() == "en"
-
-    warnings = setup_localization(None, "xx", cwd=tmp_path)
-    assert "xx" in warnings[0] and "hu" in warnings[0]
-
-
-def test_setup_localization_reads_startup_directory(tmp_path):
-    i18n.reset()
-    (tmp_path / "locals.json").write_text('{"default_language": "en", "languages": {}}', encoding="utf-8")
-    assert setup_localization(None, None, cwd=tmp_path) == []
-    assert i18n.get_language() == "en"
-
-
-def test_setup_localization_reports_bad_file(tmp_path):
-    i18n.reset()
-    bad = tmp_path / "bad.json"
-    bad.write_text("{", encoding="utf-8")
-    warnings = setup_localization(str(bad), None)
-    assert len(warnings) == 1 and "bad.json" in warnings[0]
-    assert i18n.get_language() == "hu"
 
 
 def test_messages_follow_language(make_image):

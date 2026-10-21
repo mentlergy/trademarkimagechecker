@@ -136,9 +136,24 @@ TrademarkImage.exe --locals my_texts.json
 | --lang CODE | Language of the user interface: hu (Hungarian) or en (English), or the code of any other language added to locals.json. See section 11. |
 | --locals FILE | Your own text file (default: locals.json in the startup folder, if present). |
 | IMAGE | Image file to open at start. |
-| --version | Prints the version number of the program. |
+| -h, --help | Shows the description of the parameters. In English: --lang en --help. |
+| --version | Shows the version number of the program. |
 
-When the program is started by double-click, the startup folder is the folder of the exe. For a shortcut it is the "Start in" field of the shortcut.
+- A value can also be given with an equals sign (e.g. --lang=en). Put file names containing spaces in quotation marks.
+- When the program is started by double-click, the startup folder is the folder of the exe. For a shortcut it is the "Start in" field of the shortcut.
+- The help is shown in a separate window and the version number in a message box; then the program exits.
+
+#### 10.1 Wrong parameters
+
+The program checks the parameters at start. If any of them is wrong, it lists all problems in one error message and does not start. For example, these are errors:
+
+- the value is missing after --config, --locals or --lang;
+- the given file does not exist, is a folder, or is not suitable (e.g. an image or a text file after --config);
+- an unknown language code after --lang (the message lists the available languages);
+- the given image does not exist or is not an image;
+- an unknown parameter or one given more than once, or more than one image file.
+
+The error message is shown in the selected language and ends with a hint on how to get help. Scripts can also check the exit code: 0 = OK, 2 = command line error.
 
 ### 11. Language setting and the language file
 
@@ -213,13 +228,14 @@ Image types must be given by their id in the file:
 
 - Missing keys get their default value, so it is enough to list the values that differ.
 - Use a decimal point (2.5); pixel values are whole numbers.
-- If there is an unknown key, a wrong value or a contradiction (e.g. the minimum is greater than the maximum), the program shows a warning and starts with the default criteria.
+- If there is an unknown key, a wrong value or a contradiction (e.g. the minimum is greater than the maximum): for a file given with --config the program shows an error and exits; for criterias.json in the startup folder it shows a warning and starts with the default criteria.
 
 ### 13. Troubleshooting the advanced settings
 
 | Message / situation | What to do |
 |---|---|
-| Warning at start | The criteria file or locals.json is invalid / not found, or the --lang language code is unknown. The program runs with the default settings. |
+| Command line error, the program does not start | Correct the parameters listed in the error message (see 10.1). For their description use --help. |
+| Warning at start | The criterias.json or locals.json in the startup folder is invalid. The program runs with the default settings. |
 | English text in another language | The text is missing from that language in locals.json - add the missing key. |
 | A key such as prop.width is shown instead of a text | The text is missing from English as well - add it. |
 | Strange characters instead of accented letters | Save locals.json with UTF-8 encoding. |

@@ -39,6 +39,33 @@ def create_root() -> tk.Tk:
     return tk.Tk()
 
 
+def show_message(kind: str, title: str, text: str) -> None:
+    """Show a message box without a main window (kind: 'info' or 'error')."""
+    root = tk.Tk()
+    root.withdraw()
+    show = messagebox.showerror if kind == "error" else messagebox.showinfo
+    show(title, text, parent=root)
+    root.destroy()
+
+
+def show_text_window(title: str, text: str) -> None:
+    """Show a longer, preformatted text (the command line help) in a fixed-width font."""
+    root = tk.Tk()
+    root.title(title)
+    lines = text.splitlines() or [""]
+    view = tk.Text(root, font=("Consolas", 10), wrap="none", padx=12, pady=10, relief="flat",
+                   width=max(len(line) for line in lines) + 2, height=len(lines) + 1)
+    view.insert("1.0", text)
+    view.config(state="disabled")
+    view.pack(fill="both", expand=True)
+    close = ttk.Button(root, text=tr("button.ok"), command=root.destroy)
+    close.pack(pady=(0, 10))
+    close.focus_set()
+    for key in ("<Return>", "<Escape>"):
+        root.bind(key, lambda _e: root.destroy())
+    root.mainloop()
+
+
 def same_criteria(a: Criteria, b: Criteria) -> bool:
     da, db = a.to_dict(), b.to_dict()
     da["allowed_types"] = sorted(da["allowed_types"])

@@ -135,9 +135,24 @@ TrademarkImage.exe --locals sajat_szovegek.json
 | --lang KÓD | A felület nyelve: hu (magyar) vagy en (angol), illetve bármely további, a locals.json-ba felvett nyelv kódja. Lásd a 11. fejezetet. |
 | --locals FÁJL | Saját szövegfájl (alapértelmezés: locals.json az indítási könyvtárban, ha van). |
 | KÉP | Induláskor megnyitandó képfájl. |
-| --version | Kiírja a program verziószámát. |
+| -h, --help | Megjeleníti a paraméterek leírását. Angolul: --lang en --help. |
+| --version | Megjeleníti a program verziószámát. |
 
-Az indítási könyvtár dupla kattintásos indításnál az exe mappája. Parancsikon esetén a parancsikon „Indítás helye” mezője adja meg.
+- Az érték egyenlőségjellel is megadható (pl. --lang=en). A szóközt tartalmazó fájlneveket tegye idézőjelek közé.
+- Az indítási könyvtár dupla kattintásos indításnál az exe mappája. Parancsikon esetén a parancsikon „Indítás helye” mezője adja meg.
+- A súgó egy külön ablakban, a verziószám egy üzenetablakban jelenik meg; ezután a program kilép.
+
+#### 10.1 Hibás paraméterek
+
+A program induláskor ellenőrzi a paramétereket. Ha valamelyik hibás, egy hibaüzenetben felsorolja az összes problémát, és nem indul el. Hibának számít például:
+
+- a --config, a --locals vagy a --lang után hiányzik az érték;
+- a megadott fájl nem létezik, mappa, vagy nem megfelelő (pl. kép vagy szövegfájl a --config után);
+- ismeretlen nyelvkód a --lang után (az üzenet felsorolja az elérhető nyelveket);
+- a megadott kép nem létezik vagy nem kép;
+- ismeretlen vagy többször megadott paraméter, illetve egynél több képfájl.
+
+A hibaüzenet a kiválasztott nyelven jelenik meg, és a végén megmutatja, hogyan kérhető súgó. Szkriptekből a kilépési kód is vizsgálható: 0 = rendben, 2 = parancssori hiba.
 
 ### 11. A nyelv beállítása és a nyelvi fájl
 
@@ -212,13 +227,14 @@ A képtípusokat a fájlban az azonosítójukkal kell megadni:
 
 - A hiányzó kulcsok az alapértéket kapják, így elég csak az eltérő értékeket megadni.
 - Tizedesponttal kell írni (2.5), a pixelértékek egész számok.
-- Ismeretlen kulcs, hibás érték vagy ellentmondás (pl. a minimum nagyobb a maximumnál) esetén a program figyelmeztet, és az alapértelmezett feltételekkel indul.
+- Ismeretlen kulcs, hibás érték vagy ellentmondás (pl. a minimum nagyobb a maximumnál) esetén: ha a fájlt a --config adta meg, a program hibaüzenettel kilép; az indítási könyvtár criterias.json fájljánál figyelmeztet, és az alapértelmezett feltételekkel indul.
 
 ### 13. Hibaelhárítás a haladó beállításoknál
 
 | Üzenet / helyzet | Teendő |
 |---|---|
-| Figyelmeztetés indításkor | A feltételfájl vagy a locals.json hibás / nem található, vagy ismeretlen a --lang nyelvkód. A program az alapértelmezett beállításokkal fut. |
+| Parancssori hiba, a program nem indul | Javítsa a hibaüzenetben felsorolt paramétereket (lásd 10.1). A paraméterek leírása: --help. |
+| Figyelmeztetés indításkor | Az indítási könyvtárban lévő criterias.json vagy locals.json hibás. A program az alapértelmezett beállításokkal fut. |
 | Angol szöveg jelenik meg magyar felületen | A szöveg hiányzik a locals.json magyar részéből - pótolja a hiányzó kulcsot. |
 | Kulcs (pl. prop.width) látszik szöveg helyett | A szöveg az angol részből is hiányzik - pótolja. |
 | Ékezetes betűk helyett furcsa jelek | Mentse a locals.json-t UTF-8 kódolással. |

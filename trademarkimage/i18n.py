@@ -21,6 +21,13 @@ class LocalizationError(Exception):
     """Raised when a localization file cannot be read or has a wrong structure."""
 
 
+def _message(key: str, default: str, **values) -> str:
+    """A translated error message; the English default is used while the built-in texts are not loaded yet."""
+    if "_localization" in globals():
+        return tr(key, **values)
+    return default.format(**values)
+
+
 class Localization:
     def __init__(self, default_language: str | None, languages: dict[str, dict[str, str]]):
         self.default_language = default_language
@@ -29,15 +36,18 @@ class Localization:
     @classmethod
     def from_dict(cls, data: dict) -> Localization:
         if not isinstance(data, dict) or not isinstance(data.get("languages"), dict):
-            raise LocalizationError("The file must contain a JSON object with a \"languages\" object.")
+            raise LocalizationError(_message(
+                "locals.error.structure", "The file must contain a JSON object with a \"languages\" object."))
         languages = {}
         for code, texts in data["languages"].items():
             if not isinstance(texts, dict) or not all(isinstance(v, str) for v in texts.values()):
-                raise LocalizationError(f"Language \"{code}\" must be an object of text values.")
+                raise LocalizationError(_message(
+                    "locals.error.language", "Language \"{code}\" must be an object of text values.", code=code))
             languages[code] = dict(texts)
         default = data.get("default_language")
         if default is not None and not isinstance(default, str):
-            raise LocalizationError("\"default_language\" must be a language code.")
+            raise LocalizationError(_message(
+                "locals.error.default", "\"default_language\" must be a language code."))
         return cls(default, languages)
 
     @classmethod
@@ -46,9 +56,11 @@ class Localization:
         try:
             data = json.loads(path.read_text(encoding="utf-8"))
         except OSError as exc:
-            raise LocalizationError(f"Cannot read '{path}': {exc}") from exc
-        except json.JSONDecodeError as exc:
-            raise LocalizationError(f"Invalid JSON in '{path}': {exc}") from exc
+            raise LocalizationError(_message(
+                "locals.error.read", "Cannot read '{path}': {error}", path=path, error=exc)) from exc
+        except (json.JSONDecodeError, UnicodeDecodeError) as exc:
+            raise LocalizationError(_message(
+                "locals.error.json", "Invalid JSON in '{path}': {error}", path=path, error=exc)) from exc
         return cls.from_dict(data)
 
     def merge(self, other: Localization) -> None:
@@ -88,7 +100,13 @@ def load_extra(path: str | Path) -> None:
     """Merge an additional localization file over the built-in texts.
     Its default_language, if given, becomes the current language."""
     global _language
-    _localization.merge(Localization.load(path))
+    extra = Localization.load(path)
+    if extra.default_language is not None and extra.default_language not in (
+            set(extra.languages) | set(_localization.languages)):
+        raise LocalizationError(_message(
+            "locals.error.unknown_default", "\"default_language\" is \"{code}\", but there is no such language.",
+            code=extra.default_language))
+    _localization.merge(extra)
     _language = _localization.default_language
 
 

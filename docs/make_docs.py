@@ -218,12 +218,36 @@ dist\\TrademarkImage.exe [options] [IMAGE]
 """)
     d.table(["Argument", "Meaning"], [
         ["--config FILE", "Criteria JSON file. Default: criterias.json in the current (startup) directory."],
-        ["--lang CODE", "User interface language, e.g. hu or en. Default: default_language of locals.json (hu)."],
+        ["--lang CODE", "User interface language, e.g. hu or en (case-insensitive). Default: default_language of "
+                        "locals.json (hu)."],
         ["--locals FILE", "Additional localization file merged over the built-in texts. Default: locals.json in "
                           "the current directory, if it exists."],
         ["IMAGE", "Optional image file opened at start (also works by dropping a file on the exe icon)."],
-        ["--version", "Prints the version number."],
+        ["-h, --help, /?", "Shows the description of the parameters in the selected language "
+                           "(e.g. --lang en --help) and exits."],
+        ["--version", "Shows the program name and version number and exits."],
     ], widths=[100, 370])
+    d.h2("2.5 Command line checking and messages")
+    d.p("The command line is parsed by app.parse_args (not argparse, so that every message can be localized). "
+        "Values can be given as '--config FILE' or '--config=FILE'. app.process_command_line then checks it "
+        "and returns a Startup object (run, help, version or error):")
+    d.bullets([
+        "Missing value (e.g. --config at the end, or followed by another parameter), a parameter given twice, "
+        "an unknown parameter or more than one image file are errors.",
+        "--config and --locals must name an existing file that can be loaded as a criteria file / localization "
+        "file; an incompatible file (e.g. an image, or a localization file given as --config) is an error that "
+        "includes the reason.",
+        "--lang must be one of the available language codes (including languages from --locals).",
+        "The IMAGE must exist and be a readable image.",
+        "All errors are reported together, in the selected language, followed by a hint to use --help. The "
+        "program then exits with exit code 2 without opening the window. Help and version exit with code 0.",
+        "Problems with the implicit criterias.json / locals.json of the startup directory are not command line "
+        "errors: they produce a warning in the window and the defaults are used.",
+    ])
+    d.p("Output: when the program has a console (run from source with python), help and version are printed to "
+        "standard output and errors to standard error. The Windows exe is a GUI program without a console, so "
+        "there the help is shown in a window (fixed-width font) and the version and the errors in message "
+        "boxes.")
 
     d.h1("3. Architecture")
     d.p("The program is a Python package (trademarkimage) with a strict separation between the "
@@ -244,8 +268,8 @@ dist\\TrademarkImage.exe [options] [IMAGE]
         ["i18n.py", "Localization: loads locals.json, merges extra files, keeps the current language, "
                     "tr(key, **values) returns a translated text with its placeholders filled in."],
         ["locals.json", "All user visible texts of every language (package data, also bundled into the exe)."],
-        ["app.py", "Command line parsing, localization set-up and loading of the startup criteria; creates "
-                   "the window."],
+        ["app.py", "Command line parsing and checking, help/version/error output, localization set-up and "
+                   "loading of the startup criteria; creates the window."],
         ["__main__.py, run_trademarkimage.py", "Entry points (python -m trademarkimage, PyInstaller)."],
     ], widths=[120, 350])
     d.h2("3.1 Data flow")
@@ -385,8 +409,9 @@ dist\\TrademarkImage.exe [options] [IMAGE]
                        "used instead, so a translation mistake cannot crash the program."),
         ("Image type names: ", "the JSON criteria file and the code use fixed type ids (RGB, greyscale, B&W ...); "
                                "only their display names (type.* keys) are translated."),
-        ("Errors: ", "an invalid localization file or an unknown --lang code produces a start-up warning and the "
-                     "built-in texts / default language are used."),
+        ("Errors: ", "an invalid file given with --locals or an unknown --lang code is a command line error "
+                     "(see 2.5); an invalid locals.json in the startup directory only produces a warning and the "
+                     "built-in texts are used."),
     ])
     d.p("Adding a language: copy the \"en\" block in locals.json, change its code (e.g. \"de\"), set "
         "language_name and translate the values without changing the keys or placeholders. With the exe, edit the "
@@ -396,10 +421,9 @@ dist\\TrademarkImage.exe [options] [IMAGE]
 
     d.h1("9. Tests")
     d.code(".venv\\Scripts\\python.exe -m pytest -q")
-    d.p("105 automated tests (tests directory) cover:")
+    d.p("127 automated tests (tests directory) cover:")
     d.bullets([
-        "test_criteria.py - defaults, JSON round trip, partial files, every validation error, start-up loading "
-        "and the --config parameter.",
+        "test_criteria.py - defaults, JSON round trip, partial files, every validation error.",
         "test_analyzer.py - mode classification, DPI reading and rounding, missing DPI, EXIF orientation, "
         "invalid files, boundary values of every criterion.",
         "test_converter.py - format helpers, resizing, DPI, conversion to every type and format, transparency "
@@ -411,8 +435,12 @@ dist\\TrademarkImage.exe [options] [IMAGE]
         "criteria. These tests need a Windows desktop session (Tk) and are skipped when Tk is unavailable.",
         "test_i18n.py - Hungarian default, completeness of the translations (same keys and placeholders), every "
         "key used in the code exists, English fallback, merging extra files and adding a language, invalid "
-        "files, --lang/--locals handling, translated messages, and in the GUI: Hungarian start-up, live language "
-        "switch keeping the session, translated image type names in the value dialog.",
+        "files, translated messages, and in the GUI: Hungarian start-up, live language switch keeping the "
+        "session, translated image type names in the value dialog.",
+        "test_cli.py - parsing (both value forms, missing values, duplicates, unknown parameters, extra "
+        "arguments), help in Hungarian and English, version, every kind of invalid --config / --locals / --lang / "
+        "image value, errors in the selected language, defaults from the startup directory, exit codes, and "
+        "output to the console or - without a console, as in the exe - to a window.",
     ])
     d.p("The tests run in English (an autouse fixture in conftest.py selects it) except the localization tests.")
 
@@ -643,10 +671,28 @@ TrademarkImage.exe --locals sajat_szovegek.json
                        "felvett nyelv kódja. Lásd a 11. fejezetet."],
         ["--locals FÁJL", "Saját szövegfájl (alapértelmezés: locals.json az indítási könyvtárban, ha van)."],
         ["KÉP", "Induláskor megnyitandó képfájl."],
-        ["--version", "Kiírja a program verziószámát."],
+        ["-h, --help", "Megjeleníti a paraméterek leírását. Angolul: --lang en --help."],
+        ["--version", "Megjeleníti a program verziószámát."],
     ], widths=[110, 360])
-    d.p("Az indítási könyvtár dupla kattintásos indításnál az exe mappája. Parancsikon esetén a parancsikon "
-        "„Indítás helye” mezője adja meg.")
+    d.bullets([
+        "Az érték egyenlőségjellel is megadható (pl. --lang=en). A szóközt tartalmazó fájlneveket tegye "
+        "idézőjelek közé.",
+        "Az indítási könyvtár dupla kattintásos indításnál az exe mappája. Parancsikon esetén a parancsikon "
+        "„Indítás helye” mezője adja meg.",
+        "A súgó egy külön ablakban, a verziószám egy üzenetablakban jelenik meg; ezután a program kilép.",
+    ])
+    d.h3("10.1 Hibás paraméterek")
+    d.p("A program induláskor ellenőrzi a paramétereket. Ha valamelyik hibás, egy hibaüzenetben felsorolja az "
+        "összes problémát, és nem indul el. Hibának számít például:")
+    d.bullets([
+        "a --config, a --locals vagy a --lang után hiányzik az érték;",
+        "a megadott fájl nem létezik, mappa, vagy nem megfelelő (pl. kép vagy szövegfájl a --config után);",
+        "ismeretlen nyelvkód a --lang után (az üzenet felsorolja az elérhető nyelveket);",
+        "a megadott kép nem létezik vagy nem kép;",
+        "ismeretlen vagy többször megadott paraméter, illetve egynél több képfájl.",
+    ])
+    d.p("A hibaüzenet a kiválasztott nyelven jelenik meg, és a végén megmutatja, hogyan kérhető súgó. "
+        "Szkriptekből a kilépési kód is vizsgálható: 0 = rendben, 2 = parancssori hiba.")
 
     d.h2("11. A nyelv beállítása és a nyelvi fájl")
     d.h3("11.1 A nyelv kiválasztása")
@@ -705,14 +751,17 @@ TrademarkImage.exe --locals sajat_szovegek.json
     d.bullets([
         "A hiányzó kulcsok az alapértéket kapják, így elég csak az eltérő értékeket megadni.",
         "Tizedesponttal kell írni (2.5), a pixelértékek egész számok.",
-        "Ismeretlen kulcs, hibás érték vagy ellentmondás (pl. a minimum nagyobb a maximumnál) esetén a program "
+        "Ismeretlen kulcs, hibás érték vagy ellentmondás (pl. a minimum nagyobb a maximumnál) esetén: ha a "
+        "fájlt a --config adta meg, a program hibaüzenettel kilép; az indítási könyvtár criterias.json fájljánál "
         "figyelmeztet, és az alapértelmezett feltételekkel indul.",
     ])
 
     d.h2("13. Hibaelhárítás a haladó beállításoknál")
     d.table(["Üzenet / helyzet", "Teendő"], [
-        ["Figyelmeztetés indításkor", "A feltételfájl vagy a locals.json hibás / nem található, vagy ismeretlen "
-                                      "a --lang nyelvkód. A program az alapértelmezett beállításokkal fut."],
+        ["Parancssori hiba, a program nem indul", "Javítsa a hibaüzenetben felsorolt paramétereket (lásd 10.1). "
+                                                  "A paraméterek leírása: --help."],
+        ["Figyelmeztetés indításkor", "Az indítási könyvtárban lévő criterias.json vagy locals.json hibás. A "
+                                      "program az alapértelmezett beállításokkal fut."],
         ["Angol szöveg jelenik meg magyar felületen", "A szöveg hiányzik a locals.json magyar részéből - "
                                                       "pótolja a hiányzó kulcsot."],
         ["Kulcs (pl. prop.width) látszik szöveg helyett", "A szöveg az angol részből is hiányzik - pótolja."],
@@ -883,10 +932,30 @@ TrademarkImage.exe --locals my_texts.json
                         "other language added to locals.json. See section 11."],
         ["--locals FILE", "Your own text file (default: locals.json in the startup folder, if present)."],
         ["IMAGE", "Image file to open at start."],
-        ["--version", "Prints the version number of the program."],
+        ["-h, --help", "Shows the description of the parameters. In English: --lang en --help."],
+        ["--version", "Shows the version number of the program."],
     ], widths=[110, 360])
-    d.p("When the program is started by double-click, the startup folder is the folder of the exe. For a "
-        "shortcut it is the \"Start in\" field of the shortcut.")
+    d.bullets([
+        "A value can also be given with an equals sign (e.g. --lang=en). Put file names containing spaces in "
+        "quotation marks.",
+        "When the program is started by double-click, the startup folder is the folder of the exe. For a "
+        "shortcut it is the \"Start in\" field of the shortcut.",
+        "The help is shown in a separate window and the version number in a message box; then the program "
+        "exits.",
+    ])
+    d.h3("10.1 Wrong parameters")
+    d.p("The program checks the parameters at start. If any of them is wrong, it lists all problems in one "
+        "error message and does not start. For example, these are errors:")
+    d.bullets([
+        "the value is missing after --config, --locals or --lang;",
+        "the given file does not exist, is a folder, or is not suitable (e.g. an image or a text file after "
+        "--config);",
+        "an unknown language code after --lang (the message lists the available languages);",
+        "the given image does not exist or is not an image;",
+        "an unknown parameter or one given more than once, or more than one image file.",
+    ])
+    d.p("The error message is shown in the selected language and ends with a hint on how to get help. Scripts "
+        "can also check the exit code: 0 = OK, 2 = command line error.")
 
     d.h2("11. Language setting and the language file")
     d.h3("11.1 Choosing the language")
@@ -946,13 +1015,16 @@ TrademarkImage.exe --locals my_texts.json
         "Missing keys get their default value, so it is enough to list the values that differ.",
         "Use a decimal point (2.5); pixel values are whole numbers.",
         "If there is an unknown key, a wrong value or a contradiction (e.g. the minimum is greater than the "
-        "maximum), the program shows a warning and starts with the default criteria.",
+        "maximum): for a file given with --config the program shows an error and exits; for criterias.json in "
+        "the startup folder it shows a warning and starts with the default criteria.",
     ])
 
     d.h2("13. Troubleshooting the advanced settings")
     d.table(["Message / situation", "What to do"], [
-        ["Warning at start", "The criteria file or locals.json is invalid / not found, or the --lang language "
-                             "code is unknown. The program runs with the default settings."],
+        ["Command line error, the program does not start", "Correct the parameters listed in the error message "
+                                                           "(see 10.1). For their description use --help."],
+        ["Warning at start", "The criterias.json or locals.json in the startup folder is invalid. The program "
+                             "runs with the default settings."],
         ["English text in another language", "The text is missing from that language in locals.json - add the "
                                              "missing key."],
         ["A key such as prop.width is shown instead of a text", "The text is missing from English as well - add "

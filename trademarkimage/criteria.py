@@ -113,6 +113,8 @@ def load_criteria(path: str | Path) -> Criteria:
         text = path.read_text(encoding="utf-8")
     except OSError as exc:
         raise CriteriaError(tr("criteria.error.read", path=path, error=exc)) from exc
+    except UnicodeDecodeError as exc:  # e.g. an image file
+        raise CriteriaError(tr("criteria.error.json", path=path, error=exc)) from exc
     try:
         data = json.loads(text)
     except json.JSONDecodeError as exc:

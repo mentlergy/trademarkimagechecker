@@ -25,7 +25,13 @@ rebuilding; missing texts fall back to English.
 python -m venv .venv
 .venv\Scripts\python.exe -m pip install -r requirements-dev.txt
 .venv\Scripts\python.exe -m trademarkimage [--config FILE] [--lang CODE] [--locals FILE] [IMAGE]
+.venv\Scripts\python.exe -m trademarkimage --help              # Hungarian help
+.venv\Scripts\python.exe -m trademarkimage --lang en --help    # English help
 ```
+
+Invalid parameters (missing value, missing/incompatible file, unknown language code, bad image) are
+reported together and the program exits with code 2. The exe has no console, so help, version and
+errors are shown in a window there.
 
 ## Tests
 

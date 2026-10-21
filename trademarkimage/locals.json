@@ -136,15 +136,34 @@
       "convert.done.title": "Átalakítás kész",
       "convert.done.text": "{summary}\n\nAz átalakított kép minden feltételnek megfelel.",
 
-      "cli.config_help": "feltételeket tartalmazó JSON fájl (alapértelmezés: {name} az aktuális könyvtárban)",
-      "cli.image_help": "induláskor megnyitandó képfájl",
-      "cli.lang_help": "a felhasználói felület nyelve ({languages}; alapértelmezés: {default})",
-      "cli.locals_help": "további lokalizációs fájl (alapértelmezés: {name} az aktuális könyvtárban, ha létezik)",
+      "cli.help.title": "Parancssori paraméterek",
+      "cli.help": "{title} {version}\n\nHasználat:\n  {prog} [paraméterek] [KÉP]\n\nParaméterek:\n  KÉP              induláskor megnyitandó képfájl\n  --config FÁJL    feltételeket tartalmazó JSON fájl\n                   (alapértelmezés: {config} az indítási könyvtárban, ha van)\n  --lang KÓD       a felület nyelve: {languages}\n                   (alapértelmezés: {default})\n  --locals FÁJL    további szövegfájl (JSON)\n                   (alapértelmezés: {locals} az indítási könyvtárban, ha van)\n  -h, --help       ez a súgó\n  --version        a program verziószáma\n\nAz érték egyenlőségjellel is megadható, pl. --lang=en.\nA szóközt tartalmazó fájlneveket tegye idézőjelek közé.\nHibás paraméter esetén a program hibaüzenetet ad, és nem indul el\n(kilépési kód: 2).\n\nPéldák:\n  {prog} logo.png\n  {prog} --config szigoru.json --lang en logo.png\n\nEnglish help: {prog} --lang en --help",
+      "cli.version.title": "Verzió",
+      "cli.value.file": "fájlnév",
+      "cli.value.code": "nyelvkód",
+      "cli.error.title": "Parancssori hiba",
+      "cli.error.missing_value": "A(z) {option} paraméter után meg kell adni: {expected}.",
+      "cli.error.duplicate": "A(z) {option} paraméter többször szerepel.",
+      "cli.error.unknown_option": "Ismeretlen paraméter: {option}",
+      "cli.error.extra_argument": "Csak egy képfájl adható meg; felesleges paraméter: {argument}",
+      "cli.error.file_not_found": "{option}: a fájl nem létezik: {path}",
+      "cli.error.not_a_file": "{option}: ez nem fájl: {path}",
+      "cli.error.config_invalid": "--config: a(z) „{path}” nem érvényes feltételfájl: {error}",
+      "cli.error.locals_invalid": "--locals: a(z) „{path}” nem érvényes szövegfájl: {error}",
+      "cli.error.unknown_language": "--lang: ismeretlen nyelvkód: „{code}”. Elérhető nyelvek: {languages}.",
+      "cli.error.image": "Képfájl: {error}",
+      "cli.error.see_help": "A paraméterek leírása: {prog} --help",
+
+      "locals.error.structure": "A fájlnak egy \"languages\" objektumot tartalmazó JSON objektumnak kell lennie.",
+      "locals.error.language": "A(z) „{code}” nyelvnek szöveges értékeket tartalmazó objektumnak kell lennie.",
+      "locals.error.default": "A \"default_language\" értékének nyelvkódnak kell lennie.",
+      "locals.error.unknown_default": "A \"default_language\" értéke „{code}”, de ilyen nyelv nincs.",
+      "locals.error.read": "A(z) „{path}” nem olvasható: {error}",
+      "locals.error.json": "Hibás JSON a(z) „{path}” fájlban: {error}",
+
       "startup.title": "Figyelmeztetés",
-      "startup.config_missing": "A(z) „{path}” feltételfájl nem található, az alapértelmezett feltételek érvényesek.",
       "startup.config_invalid": "{error}\n\nAz alapértelmezett feltételek érvényesek.",
-      "startup.locals_invalid": "A(z) „{path}” lokalizációs fájl nem tölthető be: {error}",
-      "startup.unknown_language": "Ismeretlen nyelv: „{code}”. Elérhető nyelvek: {languages}."
+      "startup.locals_invalid": "A(z) „{path}” szövegfájl nem tölthető be: {error}"
     },
 
     "en": {
@@ -275,15 +294,34 @@
       "convert.done.title": "Conversion done",
       "convert.done.text": "{summary}\n\nThe converted image meets all criteria.",
 
-      "cli.config_help": "criteria JSON file (default: {name} in the current directory)",
-      "cli.image_help": "image file to open at start",
-      "cli.lang_help": "user interface language ({languages}; default: {default})",
-      "cli.locals_help": "additional localization file (default: {name} in the current directory, if present)",
+      "cli.help.title": "Command line parameters",
+      "cli.help": "{title} {version}\n\nUsage:\n  {prog} [parameters] [IMAGE]\n\nParameters:\n  IMAGE            image file to open at start\n  --config FILE    JSON file containing the criteria\n                   (default: {config} in the startup folder, if present)\n  --lang CODE      language of the user interface: {languages}\n                   (default: {default})\n  --locals FILE    additional text file (JSON)\n                   (default: {locals} in the startup folder, if present)\n  -h, --help       show this help\n  --version        show the version number\n\nA value can also be given with an equals sign, e.g. --lang=en.\nPut file names containing spaces in quotation marks.\nIf a parameter is wrong, the program shows an error message and does\nnot start (exit code: 2).\n\nExamples:\n  {prog} logo.png\n  {prog} --config strict.json --lang en logo.png\n\nMagyar súgó: {prog} --lang hu --help",
+      "cli.version.title": "Version",
+      "cli.value.file": "a file name",
+      "cli.value.code": "a language code",
+      "cli.error.title": "Command line error",
+      "cli.error.missing_value": "The {option} parameter must be followed by {expected}.",
+      "cli.error.duplicate": "The {option} parameter is given more than once.",
+      "cli.error.unknown_option": "Unknown parameter: {option}",
+      "cli.error.extra_argument": "Only one image file can be given; extra parameter: {argument}",
+      "cli.error.file_not_found": "{option}: the file does not exist: {path}",
+      "cli.error.not_a_file": "{option}: not a file: {path}",
+      "cli.error.config_invalid": "--config: '{path}' is not a valid criteria file: {error}",
+      "cli.error.locals_invalid": "--locals: '{path}' is not a valid text file: {error}",
+      "cli.error.unknown_language": "--lang: unknown language code '{code}'. Available languages: {languages}.",
+      "cli.error.image": "Image file: {error}",
+      "cli.error.see_help": "For the description of the parameters run: {prog} --help",
+
+      "locals.error.structure": "The file must contain a JSON object with a \"languages\" object.",
+      "locals.error.language": "Language \"{code}\" must be an object of text values.",
+      "locals.error.default": "\"default_language\" must be a language code.",
+      "locals.error.unknown_default": "\"default_language\" is \"{code}\", but there is no such language.",
+      "locals.error.read": "Cannot read '{path}': {error}",
+      "locals.error.json": "Invalid JSON in '{path}': {error}",
+
       "startup.title": "Warning",
-      "startup.config_missing": "Criteria file '{path}' not found, using the default criteria.",
       "startup.config_invalid": "{error}\n\nThe default criteria are used.",
-      "startup.locals_invalid": "Cannot load localization file '{path}': {error}",
-      "startup.unknown_language": "Unknown language '{code}'. Available languages: {languages}."
+      "startup.locals_invalid": "Cannot load the text file '{path}': {error}"
     }
   }
 }

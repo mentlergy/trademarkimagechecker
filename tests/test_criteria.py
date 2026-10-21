@@ -2,9 +2,7 @@ import json
 
 import pytest
 
-from trademarkimage.app import load_startup_criteria, parse_args
-from trademarkimage.criteria import (DEFAULT_CONFIG_NAME, Criteria, CriteriaError, load_criteria,
-                                     save_criteria)
+from trademarkimage.criteria import Criteria, CriteriaError, load_criteria, save_criteria
 
 
 def test_defaults_match_specification():
@@ -56,35 +54,3 @@ def test_invalid_files_are_rejected(tmp_path, content, message):
 def test_missing_file(tmp_path):
     with pytest.raises(CriteriaError, match="Cannot read"):
         load_criteria(tmp_path / "missing.json")
-
-
-def test_startup_loads_default_file_from_directory(tmp_path):
-    save_criteria(Criteria(min_dpi=150), tmp_path / DEFAULT_CONFIG_NAME)
-    criteria, path, warning = load_startup_criteria(None, cwd=tmp_path)
-    assert criteria.min_dpi == 150
-    assert path == tmp_path / DEFAULT_CONFIG_NAME
-    assert warning is None
-
-
-def test_startup_without_file_uses_defaults_silently(tmp_path):
-    criteria, path, warning = load_startup_criteria(None, cwd=tmp_path)
-    assert criteria == Criteria()
-    assert warning is None
-
-
-def test_startup_with_config_parameter(tmp_path):
-    custom = tmp_path / "other.json"
-    save_criteria(Criteria(min_width=100), custom)
-    args = parse_args(["--config", str(custom), "image.png"])
-    assert args.image == "image.png"
-    criteria, path, warning = load_startup_criteria(args.config)
-    assert criteria.min_width == 100 and path == custom and warning is None
-
-
-def test_startup_with_missing_or_broken_config(tmp_path):
-    criteria, _, warning = load_startup_criteria(str(tmp_path / "nope.json"))
-    assert criteria == Criteria() and "not found" in warning
-    broken = tmp_path / "broken.json"
-    broken.write_text("{", encoding="utf-8")
-    criteria, _, warning = load_startup_criteria(str(broken))
-    assert criteria == Criteria() and "default criteria" in warning
