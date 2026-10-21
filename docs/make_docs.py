@@ -55,7 +55,18 @@ class Doc:
                 para.add_run(item)
 
     def steps(self, items):
-        self.bullets(items, style="List Number")
+        """Numbered list that restarts at 1 (a new numbering instance per list)."""
+        numbering = self.doc.part.numbering_part.numbering_definitions._numbering
+        base_id = self.doc.styles["List Number"]._element.pPr.numPr.numId.val
+        abstract_id = numbering.num_having_numId(base_id).abstractNumId.val
+        num = numbering.add_num(abstract_id)
+        num.add_lvlOverride(ilvl=0).add_startOverride(1)
+        for item in items:
+            para = self.doc.add_paragraph(style="List Number")
+            num_pr = para._p.get_or_add_pPr().get_or_add_numPr()
+            num_pr.get_or_add_ilvl().val = 0
+            num_pr.get_or_add_numId().val = num.numId
+            para.add_run(item)
 
     def code(self, text):
         for line in text.strip("\n").splitlines():
@@ -99,14 +110,15 @@ class Doc:
 
 
 def technical_en():
-    d = Doc("Trademark Image Checker", "Technical documentation - design, installation and operation (version 1.0.0)")
+    d = Doc("Trademark Image Checker", "Technical documentation - design, installation and operation (version 1.1.0)")
 
     d.h1("1. Purpose")
     d.p("Trademark Image Checker is a Windows desktop program that examines a raster image against a "
         "configurable set of criteria (file size, pixel dimensions, resolution and image type), shows "
         "the result in a GUI, lets the user choose valid target values for the failing properties and "
         "converts the image accordingly. Its default criteria correspond to typical trademark office "
-        "image upload requirements.")
+        "image upload requirements. The user interface is localized (Hungarian by default, English included) "
+        "and further languages can be added by editing a JSON file.")
 
     d.h1("2. Requirements")
     d.h2("2.1 Running the compiled program")
@@ -135,12 +147,15 @@ python -m venv .venv
 """)
     d.h2("2.4 Running")
     d.code("""
-.venv\\Scripts\\python.exe -m trademarkimage [--config FILE] [IMAGE]
-.venv\\Scripts\\python.exe run_trademarkimage.py [--config FILE] [IMAGE]
-dist\\TrademarkImage.exe [--config FILE] [IMAGE]
+.venv\\Scripts\\python.exe -m trademarkimage [--config FILE] [--lang CODE] [--locals FILE] [IMAGE]
+.venv\\Scripts\\python.exe run_trademarkimage.py [options] [IMAGE]
+dist\\TrademarkImage.exe [options] [IMAGE]
 """)
     d.table(["Argument", "Meaning"], [
         ["--config FILE", "Criteria JSON file. Default: criterias.json in the current (startup) directory."],
+        ["--lang CODE", "User interface language, e.g. hu or en. Default: default_language of locals.json (hu)."],
+        ["--locals FILE", "Additional localization file merged over the built-in texts. Default: locals.json in "
+                          "the current directory, if it exists."],
         ["IMAGE", "Optional image file opened at start (also works by dropping a file on the exe icon)."],
         ["--version", "Prints the version number."],
     ], widths=[100, 370])
@@ -159,8 +174,13 @@ dist\\TrademarkImage.exe [--config FILE] [IMAGE]
         ["session.py", "Session: GUI independent state of one examined image - the failing (flagged) properties, "
                        "the target values chosen by the user, input parsing, suggestions, keep-aspect logic and "
                        "building ConversionSettings."],
-        ["gui.py", "Tkinter UI: App main window, CriteriaPanel, ValueDialog; drag and drop via tkinterdnd2."],
-        ["app.py", "Command line parsing and loading of the startup criteria; creates the window."],
+        ["gui.py", "Tkinter UI: App main window (with language selector), CriteriaPanel, ValueDialog; "
+                   "drag and drop via tkinterdnd2."],
+        ["i18n.py", "Localization: loads locals.json, merges extra files, keeps the current language, "
+                    "tr(key, **values) returns a translated text with its placeholders filled in."],
+        ["locals.json", "All user visible texts of every language (package data, also bundled into the exe)."],
+        ["app.py", "Command line parsing, localization set-up and loading of the startup criteria; creates "
+                   "the window."],
         ["__main__.py, run_trademarkimage.py", "Entry points (python -m trademarkimage, PyInstaller)."],
     ], widths=[120, 350])
     d.h2("3.1 Data flow")
@@ -273,9 +293,45 @@ dist\\TrademarkImage.exe [--config FILE] [IMAGE]
         "format, an error lists the suitable formats and the save dialog is shown again. A file name without "
         "extension gets the extension of the file type selected in the dialog.")
 
-    d.h1("8. Tests")
+    d.h1("8. Localization")
+    d.p("Every user visible text (window texts, buttons, dialogs, error messages, command line help) is "
+        "stored in trademarkimage\\locals.json and looked up by a key with i18n.tr(key, **values). Texts may "
+        "contain {placeholders} (Python str.format syntax, e.g. {value:.2f}); \\n in a text starts a new line.")
+    d.code("""
+{
+  "default_language": "hu",
+  "languages": {
+    "hu": { "language_name": "Magyar",  "prop.width": "Szélesség", ... },
+    "en": { "language_name": "English", "prop.width": "Width", ... }
+  }
+}
+""")
+    d.bullets([
+        ("Default language: ", "Hungarian (default_language = hu). It can be changed with --lang, by setting "
+                               "default_language in a locals.json in the startup directory, or at run time with "
+                               "the Language (Nyelv) selector in the top right corner of the main window. "
+                               "Switching rebuilds the window; the loaded image and the chosen target values "
+                               "are kept."),
+        ("Loading order: ", "the built-in file (inside the package / exe) is always loaded; then a locals.json in "
+                            "the startup directory, or the file given with --locals, is merged over it key by "
+                            "key. Such a file may contain only the changed texts or only a new language."),
+        ("Fallback: ", "a text missing from the selected language is taken from English; an unknown key is "
+                       "shown as the key itself. If an edited text has a wrong placeholder, the English text is "
+                       "used instead, so a translation mistake cannot crash the program."),
+        ("Image type names: ", "the JSON criteria file and the code use fixed type ids (RGB, greyscale, B&W ...); "
+                               "only their display names (type.* keys) are translated."),
+        ("Errors: ", "an invalid localization file or an unknown --lang code produces a start-up warning and the "
+                     "built-in texts / default language are used."),
+    ])
+    d.p("Adding a language: copy the \"en\" block in locals.json, change its code (e.g. \"de\"), set "
+        "language_name and translate the values without changing the keys or placeholders. With the exe, edit the "
+        "locals.json placed next to TrademarkImage.exe; no rebuild is needed. The test "
+        "test_translation_is_complete checks that the built-in languages have the same keys and placeholders "
+        "(add a new built-in language code to its parameter list).")
+
+    d.h1("9. Tests")
     d.code(".venv\\Scripts\\python.exe -m pytest -q")
-    d.p("86 automated tests (tests directory) cover:")
+    d.p("105 automated tests (tests directory) cover:")
     d.bullets([
         "test_criteria.py - defaults, JSON round trip, partial files, every validation error, start-up loading "
         "and the --config parameter.",
@@ -288,9 +344,14 @@ dist\\TrademarkImage.exe [--config FILE] [IMAGE]
         "test_gui.py - drag and drop registration, green OK button and exit, red/white buttons, the full "
         "fix-and-convert workflow, incompatible format retry, criteria apply/save prompt, loading alternative "
         "criteria. These tests need a Windows desktop session (Tk) and are skipped when Tk is unavailable.",
+        "test_i18n.py - Hungarian default, completeness of the translations (same keys and placeholders), every "
+        "key used in the code exists, English fallback, merging extra files and adding a language, invalid "
+        "files, --lang/--locals handling, translated messages, and in the GUI: Hungarian start-up, live language "
+        "switch keeping the session, translated image type names in the value dialog.",
     ])
+    d.p("The tests run in English (an autouse fixture in conftest.py selects it) except the localization tests.")
 
-    d.h1("9. Building the Windows executable")
+    d.h1("10. Building the Windows executable")
     d.p("The build uses a separate, minimal virtual environment (.venv-build) so that development packages are "
         "not bundled. Run from the project directory:")
     d.code("powershell -ExecutionPolicy Bypass -File build_exe.ps1 [-Python <python.exe>] [-SkipTests]")
@@ -299,33 +360,38 @@ dist\\TrademarkImage.exe [--config FILE] [IMAGE]
         "Installs requirements.txt, pytest and PyInstaller into it.",
         "Runs the test suite; the build stops if any test fails.",
         "Runs PyInstaller with TrademarkImage.spec: one-file, windowed (no console), tkinterdnd2 data and the "
-        "native tkdnd library collected with collect_all, development packages excluded.",
-        "Result: dist\\TrademarkImage.exe (about 19 MB) plus dist\\criterias.example.json.",
+        "native tkdnd library (Windows builds only) collected, locals.json bundled as package data, "
+        "development packages excluded.",
+        "Result: dist\\TrademarkImage.exe (about 19 MB) plus dist\\criterias.example.json and an editable "
+        "dist\\locals.json.",
     ])
-    d.p("Deployment: copy TrademarkImage.exe to the target machine. To use custom criteria, place a "
-        "criterias.json next to the exe (when started by double click the startup directory is the exe folder) "
-        "or start it with --config. The one-file exe unpacks itself into a temporary folder at start, so the "
-        "first start takes a few seconds. Unsigned executables may trigger a Windows SmartScreen warning.")
+    d.p("Deployment: copy TrademarkImage.exe (and optionally locals.json) to the target machine. To use custom "
+        "criteria, place a criterias.json next to the exe (when started by double click the startup directory is "
+        "the exe folder) or start it with --config. The exe works without locals.json, using its built-in texts. "
+        "The one-file exe unpacks itself into a temporary folder at start, so the first start takes a few "
+        "seconds. Unsigned executables may trigger a Windows SmartScreen warning.")
 
-    d.h1("10. Known limitations")
+    d.h1("11. Known limitations")
     d.bullets([
         "Only the first frame of multi-frame images (animated GIF, multi-page TIFF) is processed.",
         "CMYK conversion is not colour managed; embedded ICC profiles are not carried over.",
         "Metadata (EXIF, ICC, XMP) is not copied to the converted image; only the DPI is written.",
         "Changing the DPI only changes the stored metadata; pixel dimensions are controlled by width/height.",
-        "The GUI language is English; the user guide is available in Hungarian.",
+        "Numbers are always shown with a decimal point; input accepts both decimal point and comma.",
+        "The language chosen in the window is not remembered; use --lang or default_language in locals.json "
+        "to change the start-up language permanently.",
     ])
 
-    d.h1("11. Regenerating the documentation")
+    d.h1("12. Regenerating the documentation")
     d.code(".venv\\Scripts\\python.exe docs\\make_docs.py")
     d.save("TrademarkImage_Technical_Documentation_EN.docx")
 
 
 def user_guide_hu():
-    d = Doc("Trademark Image Checker", "Felhasználói kézikönyv (1.0.0 verzió)")
+    d = Doc("Védjegykép-ellenőrző", "Felhasználói kézikönyv (Trademark Image Checker, 1.1.0 verzió)")
 
     d.h1("1. Mire való a program?")
-    d.p("A Trademark Image Checker egy képfájlról megállapítja, hogy megfelel-e a beállított "
+    d.p("A Védjegykép-ellenőrző egy képfájlról megállapítja, hogy megfelel-e a beállított "
         "feltételeknek (fájlméret, képméret pixelben, felbontás, képtípus), például egy védjegybejelentéshez "
         "feltöltendő kép követelményeinek. Ha a kép nem felel meg, a program segít beállítani a megfelelő "
         "értékeket, majd elkészíti és elmenti az átalakított képet.")
@@ -343,72 +409,109 @@ def user_guide_hu():
 TrademarkImage.exe
 TrademarkImage.exe kep.jpg
 TrademarkImage.exe --config sajat_feltetelek.json kep.jpg
+TrademarkImage.exe --lang en
+TrademarkImage.exe --locals sajat_szovegek.json
 """)
+    d.table(["Paraméter", "Jelentése"], [
+        ["--config FÁJL", "A feltételeket tartalmazó JSON fájl (alapértelmezés: criterias.json az indítási "
+                          "könyvtárban)."],
+        ["--lang KÓD", "A felület nyelve: hu (magyar) vagy en (angol), illetve bármely további, a locals.json-ba "
+                       "felvett nyelv kódja."],
+        ["--locals FÁJL", "Saját szövegfájl (alapértelmezés: locals.json az indítási könyvtárban, ha van)."],
+        ["KÉP", "Induláskor megnyitandó képfájl."],
+    ], widths=[110, 360])
     d.p("Ha az indítási könyvtárban van criterias.json nevű fájl, a program induláskor abból tölti be a "
-        "feltételeket. A --config paraméterrel más fájl is megadható. Ha nincs ilyen fájl, a program az "
-        "alapértelmezett feltételekkel dolgozik.")
+        "feltételeket. Ha nincs ilyen fájl, az alapértelmezett feltételekkel dolgozik.")
 
     d.h1("3. A főablak részei")
     d.table(["Terület", "Leírás"], [
-        ["Criteria (bal oldal)", "A feltételek beállítása, az Apply (alkalmaz), Load criteria... (betöltés) és "
-                                 "Save criteria as... (mentés másként) gombok. Alul látható, melyik fájlból "
-                                 "származnak a feltételek."],
+        ["Nyelv (jobb felső sarok)", "A felület nyelvének kiválasztása (Magyar / English)."],
+        ["Feltételek (bal oldal)", "A feltételek beállítása, valamint az Alkalmaz, a Feltételek betöltése... és a "
+                                   "Feltételek mentése másként... gomb. Alul látható, melyik fájlból "
+                                   "származnak a feltételek."],
         ["Képterület (jobb felül)", "Ide kell behúzni a képet; betöltés után a kép előnézete látszik."],
-        ["Képadatok", "Fájlnév, formátum, mód, méret pixelben, felbontás (DPI), fájlméret."],
-        ["Eredmény (jobb alul)", "Zöld OK gomb vagy a nem teljesülő feltételek piros gombjai és a "
-                                 "Convert and save... (átalakítás és mentés) gomb."],
+        ["Képadatok", "Fájl, formátum, mód, méret pixelben, felbontás (DPI), fájlméret."],
+        ["Eredmény (jobb alul)", "Zöld OK gomb, vagy a nem teljesülő feltételek piros gombjai és az "
+                                 "Átalakítás és mentés... gomb."],
     ], widths=[130, 340])
 
-    d.h1("4. Kép betöltése")
+    d.h1("4. A felület nyelve")
+    d.p("A program alapértelmezés szerint magyarul indul. A nyelv a főablak jobb felső sarkában, a Nyelv "
+        "listában bármikor átváltható; ilyenkor a betöltött kép és a már beállított értékek megmaradnak. "
+        "A választás csak az adott futásra érvényes. Ha a program mindig más nyelven induljon, használja a "
+        "--lang paramétert, vagy írja át a locals.json fájlban a \"default_language\" értékét (pl. \"en\").")
+    d.h2("4.1 Szövegek módosítása, új nyelv felvétele")
+    d.p("A program összes szövege a locals.json fájlban van, amely az exe mellett található, és "
+        "Jegyzettömbbel szerkeszthető (UTF-8 kódolással mentse). Felépítése:")
+    d.code("""
+{
+  "default_language": "hu",
+  "languages": {
+    "hu": { "language_name": "Magyar",  "prop.width": "Szélesség", ... },
+    "en": { "language_name": "English", "prop.width": "Width", ... }
+  }
+}
+""")
+    d.bullets([
+        "Egy szöveg módosításához írja át az idézőjelek közötti értéket a kettőspont után. A kulcsot (a kettőspont "
+        "előtti részt) ne változtassa meg.",
+        "A kapcsos zárójelben lévő részeket (pl. {value}, {path}) a program tölti ki - ezeket változatlanul hagyja "
+        "meg. A \\n új sort jelent.",
+        "Új nyelv felvétele: másolja le az \"en\" blokkot, adjon neki új kódot (pl. \"de\"), írja át a "
+        "\"language_name\" értékét (pl. \"Deutsch\"), majd fordítsa le a szövegeket. A program következő "
+        "indításakor az új nyelv megjelenik a Nyelv listában.",
+        "Ha egy szöveg hiányzik egy nyelvből, a program az angol szöveget mutatja. Hibás fájl esetén "
+        "figyelmeztetést ad, és a beépített szövegekkel dolgozik.",
+        "Elég csak a megváltoztatott szövegeket tartalmazó fájlt az exe mellé tenni: a program a beépített "
+        "szövegekhez hozzáadja, illetve azokat felülírja vele.",
+    ])
+
+    d.h1("5. Kép betöltése")
     d.steps([
-        "Húzza a képfájlt a Windows Intézőből a „Drag and drop an image here” feliratú területre, vagy",
+        "Húzza a képfájlt a Windows Intézőből a „Húzzon ide egy képet” feliratú területre, vagy",
         "kattintson a területre, és válassza ki a képet a megnyíló ablakban.",
     ])
     d.p("Olvasható formátumok: JPEG, PNG, TIFF, BMP, GIF, WebP és a Pillow könyvtár által ismert egyéb "
         "formátumok. Ha a fájl nem kép, hibaüzenet jelenik meg.")
 
-    d.h1("5. Az ellenőrzés eredménye")
-    d.h2("5.1 A kép megfelel")
-    d.p("Ha minden feltétel teljesül, egy zöld gomb jelenik meg: „OK - the image meets all criteria (click to "
-        "exit)”. Erre kattintva a program bezárul, a képen nem változtat semmit.")
-    d.h2("5.2 A kép nem felel meg")
+    d.h1("6. Az ellenőrzés eredménye")
+    d.h2("6.1 A kép megfelel")
+    d.p("Ha minden feltétel teljesül, egy zöld gomb jelenik meg: „OK - a kép minden feltételnek megfelel "
+        "(kattintson a kilépéshez)”. Erre kattintva a program bezárul, a képen nem változtat semmit.")
+    d.h2("6.2 A kép nem felel meg")
     d.p("Minden nem teljesülő feltételhez egy piros gomb tartozik, amelyen a feltétel neve, a kép jelenlegi "
-        "értéke és zárójelben a követelmény olvasható, például: „Width: 4000 px (945-2835 px)”.")
-    d.table(["Gomb felirata", "Jelentése"], [
-        ["File size", "Fájlméret (MB)"],
-        ["Width", "Szélesség (pixel)"],
-        ["Height", "Magasság (pixel)"],
-        ["Resolution", "Felbontás (DPI); „not set”, ha a fájl nem tartalmaz felbontást"],
-        ["Image type", "Képtípus (színmód)"],
-    ], widths=[130, 340])
+        "értéke és zárójelben a követelmény olvasható, például: „Szélesség: 4000 px (945-2835 px)”. "
+        "A lehetséges gombok: Fájlméret, Szélesség, Magasság, Felbontás és Képtípus. A felbontásnál "
+        "„nincs megadva” látható, ha a fájl nem tárol DPI értéket.")
 
-    d.h1("6. A hibás értékek javítása")
+    d.h1("7. A hibás értékek javítása")
     d.steps([
         "Kattintson egy piros gombra. Megnyílik egy ablak, amely mutatja a jelenlegi értéket és a "
-        "követelményt, az új érték mezője pedig egy megfelelő javaslattal van kitöltve.",
+        "követelményt, az Új érték mező pedig egy megfelelő javaslattal van kitöltve.",
         "Írja be (vagy fogadja el) a kívánt értéket, és nyomja meg az OK gombot.",
-        "Ha az érték megfelel a feltételnek, a gomb fehér lesz, és az új értéket mutatja (pl. „Width: 4000 px "
-        "-> 2800 px”). Ha nem felel meg, hibaüzenet jelenik meg, és az ablak nyitva marad. A Cancel gombbal "
-        "a változtatás elvethető, a gomb piros marad.",
+        "Ha az érték megfelel a feltételnek, a gomb fehér lesz, és az új értéket mutatja (pl. „Szélesség: "
+        "4000 px -> 2800 px”). Ha nem felel meg, hibaüzenet jelenik meg, és az ablak nyitva marad. A Mégse "
+        "gombbal a változtatás elvethető, a gomb piros marad.",
     ])
     d.bullets([
-        ("Szélesség, magasság: ", "a „Keep aspect ratio” jelölőnégyzet bekapcsolva (alapértelmezés) a másik "
-                                  "méretet is arányosan módosítja, így a kép nem torzul. Ha emiatt a másik "
-                                  "méret kerül a megengedett tartományon kívülre, arra is megjelenik egy piros "
-                                  "gomb. A felajánlott értékek - ha lehetséges - megtartják a képarányt."),
-        ("Felbontás: ", "egész szám DPI-ben. A felbontás csak a fájlban tárolt adat, a pixelméretet nem változtatja."),
-        ("Fájlméret: ", "a megengedett legnagyobb méret MB-ban (tizedesvessző és -pont is használható). A program "
-                        "a mentéskor szükség esetén csökkenti a JPEG minőséget, illetve a képméretet, hogy a "
-                        "fájl beleférjen."),
+        ("Szélesség, magasság: ", "a „Méretarány megtartása” jelölőnégyzet bekapcsolva (alapértelmezés) a "
+                                  "másik méretet is arányosan módosítja, így a kép nem torzul. Ha emiatt a "
+                                  "másik méret kerül a megengedett tartományon kívülre, arra is megjelenik egy "
+                                  "piros gomb. A felajánlott értékek - ha lehetséges - megtartják a képarányt."),
+        ("Felbontás: ", "egész szám DPI-ben. A felbontás csak a fájlban tárolt adat, a pixelméretet nem "
+                        "változtatja."),
+        ("Fájlméret: ", "a megengedett legnagyobb méret MB-ban (tizedesvessző és -pont is használható). A "
+                        "program a mentéskor szükség esetén csökkenti a JPEG minőséget, illetve a képméretet, "
+                        "hogy a fájl beleférjen."),
         ("Képtípus: ", "a listából választható ki a megengedett típusok egyike."),
     ])
 
-    d.h1("7. Átalakítás és mentés")
+    d.h1("8. Átalakítás és mentés")
     d.p("Amikor az utolsó piros gomb is fehér lesz, a program automatikusan megnyitja a mentési ablakot. Ha ezt "
-        "megszakítja, később a „Convert and save...” gombbal indíthatja újra.")
+        "megszakítja, később az „Átalakítás és mentés...” gombbal indíthatja újra.")
     d.bullets([
         "Az alapértelmezett formátum az eredeti fájl formátuma (ha az a választott képtípust tárolni tudja), "
-        "az alapértelmezett fájlnév „<eredeti név>_converted”.",
+        "az alapértelmezett fájlnév „<eredeti név>_atalakitott”.",
         "A formátumot a fájltípus-listából vagy a kiterjesztéssel (.jpg, .png, .tif, .bmp) lehet megadni.",
         "Ha a formátum nem tudja tárolni a képtípust (pl. CMYK képet PNG-be), a program jelzi, mely formátumok "
         "megfelelőek, és újra megnyitja a mentési ablakot.",
@@ -416,43 +519,44 @@ TrademarkImage.exe --config sajat_feltetelek.json kep.jpg
         "JPEG minőség), és betölti az új képet - ha minden rendben, megjelenik a zöld OK gomb.",
     ])
     d.table(["Formátum", "Tárolható képtípusok", "Megjegyzés"], [
-        ["JPEG (.jpg)", "RGB, greyscale, CMYK", "Veszteséges, kis fájlméret - általában ez ajánlott"],
-        ["PNG (.png)", "RGB, RGBA, greyscale, B&W, palette", "Veszteségmentes"],
+        ["JPEG (.jpg)", "RGB, szürkeárnyalatos, CMYK", "Veszteséges, kis fájlméret - általában ez ajánlott"],
+        ["PNG (.png)", "RGB, RGBA, szürkeárnyalatos, fekete-fehér, palettás", "Veszteségmentes"],
         ["TIFF (.tif)", "mind", "Veszteségmentes tömörítés"],
-        ["BMP (.bmp)", "RGB, greyscale, B&W, palette", "Tömörítetlen, nagy fájlok"],
+        ["BMP (.bmp)", "RGB, szürkeárnyalatos, fekete-fehér, palettás", "Tömörítetlen, nagy fájlok"],
     ], widths=[85, 175, 210])
     d.p("Átalakításkor az átlátszó részek fehér hátteret kapnak (kivéve RGBA típus esetén), a fekete-fehér "
-        "(B&W) átalakítás 50%-os küszöbbel történik, a kép pedig a fényképezőgép által tárolt tájolás szerint "
+        "átalakítás 50%-os küszöbbel történik, a kép pedig a fényképezőgép által tárolt tájolás szerint "
         "elforgatásra kerül.")
 
-    d.h1("8. A feltételek beállítása")
-    d.table(["Mező", "Jelentés", "Alapérték"], [
-        ["Maximum file size (MB)", "Legnagyobb fájlméret (1 MB = 1 048 576 bájt)", "2"],
-        ["Minimum width (px)", "Legkisebb szélesség", "945"],
-        ["Minimum height (px)", "Legkisebb magasság", "945"],
-        ["Maximum width (px)", "Legnagyobb szélesség", "2835"],
-        ["Maximum height (px)", "Legnagyobb magasság", "2010"],
-        ["Minimum resolution (DPI)", "Legkisebb felbontás", "96"],
-        ["Allowed image types", "Megengedett képtípusok", "RGB, greyscale, B&W, CMYK"],
-    ], widths=[140, 220, 110])
-    d.table(["Képtípus", "Jelentése"], [
-        ["RGB", "Színes kép"],
-        ["RGBA", "Színes kép átlátszósággal"],
-        ["greyscale", "Szürkeárnyalatos kép"],
-        ["B&W", "Fekete-fehér (kétszínű) kép"],
-        ["CMYK", "Nyomdai színmodellű kép"],
-        ["palette", "Palettás (legfeljebb 256 színű) kép, pl. GIF"],
-    ], widths=[130, 340])
+    d.h1("9. A feltételek beállítása")
+    d.table(["Mező", "Kulcs a JSON fájlban", "Alapérték"], [
+        ["Legnagyobb fájlméret (MB)", "max_file_size_mb", "2 (1 MB = 1 048 576 bájt)"],
+        ["Legkisebb szélesség (px)", "min_width", "945"],
+        ["Legkisebb magasság (px)", "min_height", "945"],
+        ["Legnagyobb szélesség (px)", "max_width", "2835"],
+        ["Legnagyobb magasság (px)", "max_height", "2010"],
+        ["Legkisebb felbontás (DPI)", "min_dpi", "96"],
+        ["Megengedett képtípusok", "allowed_types", "RGB, szürkeárnyalatos, fekete-fehér, CMYK"],
+    ], widths=[150, 130, 190])
+    d.table(["Képtípus a felületen", "Azonosító a JSON fájlban", "Jelentése"], [
+        ["RGB (színes)", "RGB", "Színes kép"],
+        ["RGBA (színes, átlátszó)", "RGBA", "Színes kép átlátszósággal"],
+        ["szürkeárnyalatos", "greyscale", "Szürkeárnyalatos kép"],
+        ["fekete-fehér", "B&W", "Kétszínű (fekete-fehér) kép"],
+        ["CMYK", "CMYK", "Nyomdai színmodellű kép"],
+        ["palettás", "palette", "Legfeljebb 256 színű kép, pl. GIF"],
+    ], widths=[150, 130, 190])
     d.steps([
-        "Módosítsa a mezőket, majd nyomja meg az Apply gombot.",
+        "Módosítsa a mezőket, majd nyomja meg az Alkalmaz gombot.",
         "Ha a feltételek változtak, a program megkérdezi, el akarja-e menteni őket fájlba. Igen válasz esetén "
         "a mentési ablak a jelenlegi feltételfájlt (alapesetben criterias.json) ajánlja fel.",
         "A betöltött kép ellenőrzése az új feltételekkel automatikusan megismétlődik.",
     ])
-    d.p("Más feltételkészlet betöltése: Load criteria... gomb, majd a JSON fájl kiválasztása. "
-        "Mentés tetszőleges néven: Save criteria as... gomb.")
+    d.p("Más feltételkészlet betöltése: Feltételek betöltése... gomb, majd a JSON fájl kiválasztása. "
+        "Mentés tetszőleges néven: Feltételek mentése másként... gomb.")
     d.p("Ha azt szeretné, hogy a program mindig a saját feltételeivel induljon, mentse őket criterias.json "
-        "néven az exe mellé. A fájl egyszerű JSON szöveg, Jegyzettömbbel is szerkeszthető:")
+        "néven az exe mellé. A fájl egyszerű JSON szöveg, Jegyzettömbbel is szerkeszthető (a képtípusokat az "
+        "azonosítójukkal kell megadni):")
     d.code("""
 {
   "max_file_size_mb": 2.0,
@@ -465,19 +569,23 @@ TrademarkImage.exe --config sajat_feltetelek.json kep.jpg
 }
 """)
 
-    d.h1("9. Gyakori kérdések és hibaüzenetek")
+    d.h1("10. Gyakori kérdések és hibaüzenetek")
     d.table(["Üzenet / helyzet", "Teendő"], [
-        ["Cannot open image / Not a recognised image file", "A fájl nem kép vagy sérült - válasszon másik fájlt."],
-        ["Invalid value", "A beírt érték nem szám vagy kívül esik a megengedett tartományon."],
-        ["Invalid criteria", "A Criteria panel valamelyik mezője hibás (pl. a minimum nagyobb a maximumnál, "
-                             "vagy nincs megengedett képtípus)."],
-        ["Unsuitable format", "A választott fájlformátum nem tudja tárolni a képtípust - válasszon a felsorolt "
-                              "formátumok közül."],
-        ["Conversion failed ... minimum size", "A kép a megadott fájlméretbe a minimális képméret alatt sem fér "
-                                               "bele. Válasszon JPEG formátumot vagy más képtípust."],
-        ["A felbontás „not set”", "A fájl nem tárol DPI értéket; állítson be egyet a Resolution gombbal."],
-        ["Figyelmeztetés indításkor a criteria fájlról", "A fájl hibás vagy nem található; a program az "
-                                                         "alapértelmezett feltételeket használja."],
+        ["A kép nem nyitható meg / Nem felismerhető képfájl", "A fájl nem kép vagy sérült - válasszon másik "
+                                                              "fájlt."],
+        ["Érvénytelen érték", "A beírt érték nem szám, vagy kívül esik a megengedett tartományon."],
+        ["Érvénytelen feltételek", "A Feltételek panel valamelyik mezője hibás (pl. a minimum nagyobb a "
+                                   "maximumnál, vagy nincs megengedett képtípus)."],
+        ["Nem megfelelő formátum", "A választott fájlformátum nem tudja tárolni a képtípust - válasszon a "
+                                   "felsorolt formátumok közül."],
+        ["Sikertelen átalakítás ... legkisebb megengedett méret", "A kép a megadott fájlméretbe a minimális "
+                                                                   "képméret mellett sem fér bele. Válasszon "
+                                                                   "JPEG formátumot vagy más képtípust."],
+        ["A felbontás „nincs megadva”", "A fájl nem tárol DPI értéket; állítson be egyet a Felbontás gombbal."],
+        ["Figyelmeztetés indításkor", "A feltételfájl vagy a locals.json hibás / nem található, vagy ismeretlen "
+                                      "a --lang nyelvkód. A program az alapértelmezett beállításokkal fut."],
+        ["Angol szöveg jelenik meg magyar felületen", "A szöveg hiányzik a locals.json magyar részéből - "
+                                                      "pótolja a hiányzó kulcsot."],
     ], widths=[170, 300])
     d.save("TrademarkImage_Felhasznaloi_kezikonyv_HU.docx")
 
