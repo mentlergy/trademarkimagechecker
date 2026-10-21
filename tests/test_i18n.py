@@ -163,7 +163,7 @@ def test_gui_type_dialog_uses_translated_names(app, make_image):
 
     def answer():
         dialog = next(w for w in app.root.winfo_children() if isinstance(w, ValueDialog))
-        assert "fekete-fehér" in dialog.type_ids
+        assert "fekete-fehér" in dialog.choice_ids
         dialog.value_var.set("fekete-fehér")
         dialog.ok()
 

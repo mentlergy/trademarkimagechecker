@@ -1,6 +1,6 @@
 # Trademark Image Checker
 
-_Technical documentation - design, installation and operation (version 1.1.0)_
+_Technical documentation - design, installation and operation (version 1.2.0)_
 
 ## 1. Purpose
 
@@ -105,7 +105,9 @@ All dialogs used by App are wrapped in overridable methods (ask_value, ask_save_
 | max_width | 2835 | Maximum width in pixels. |
 | max_height | 2010 | Maximum height in pixels. |
 | min_dpi | 96.0 | Minimum resolution in DPI (the smaller of the horizontal and vertical value is used). |
+| max_dpi | 600.0 | Maximum resolution in DPI (the larger of the horizontal and vertical value is used). |
 | allowed_types | ["RGB", "greyscale", "B&W", "CMYK"] | Allowed image types. Known types: RGB, RGBA, greyscale, B&W, CMYK, palette. |
+| allow_progressive_jpeg | false | If false, progressive JPEG files fail the check (baseline JPEG required). Other formats are not affected. |
 
 Example (criterias.example.json):
 
@@ -117,7 +119,9 @@ Example (criterias.example.json):
   "max_width": 2835,
   "max_height": 2010,
   "min_dpi": 96.0,
-  "allowed_types": ["RGB", "greyscale", "B&W", "CMYK"]
+  "max_dpi": 600.0,
+  "allowed_types": ["RGB", "greyscale", "B&W", "CMYK"],
+  "allow_progressive_jpeg": false
 }
 ```
 
@@ -133,8 +137,9 @@ Example (criterias.example.json):
 |---|---|---|
 | File size | Size of the file on disk | 0 \< size \<= max_file_size_mb x 1 048 576 |
 | Width / Height | Pixel size after applying the EXIF orientation tag | min \<= value \<= max |
-| Resolution | dpi info (JPEG JFIF/EXIF, PNG pHYs, TIFF, BMP); JFIF dots/cm converted; rounded to 0.1 DPI | smaller of x/y DPI >= min_dpi; a missing value fails |
+| Resolution | dpi info (JPEG JFIF/EXIF, PNG pHYs, TIFF, BMP); JFIF dots/cm converted; rounded to 0.1 DPI | smaller of x/y DPI >= min_dpi and larger \<= max_dpi; a missing value fails |
 | Image type | Pillow mode mapped to a type name | type is in allowed_types |
+| JPEG encoding | JPEG files only: Pillow reports 'progressive' for a progressive (SOF2) file | baseline, or allow_progressive_jpeg is true; other formats always pass |
 
 | Pillow mode(s) | Image type |
 |---|---|
@@ -161,7 +166,7 @@ Example (criterias.example.json):
 2. Transparency is composited onto a white background unless the target type is RGBA.
 3. The image is resized with the Lanczos filter in a continuous-tone working mode (L, RGB, RGBA or CMYK).
 4. The type is converted: B&W uses a fixed threshold of 128 (no dithering, keeps logos crisp); palette uses an adaptive 256 colour palette; CMYK uses Pillow's plain RGB->CMYK conversion (no ICC colour management).
-5. The image is encoded in memory with the chosen DPI. JPEG uses the highest quality between 95 and 40 that fits under the size limit (binary search). If the file is still too big, the image is scaled down proportionally, but never below the minimum width/height; if that is not enough an error is shown.
+5. The image is encoded in memory with the chosen DPI (the original x/y values are kept when the resolution was not changed). JPEG is always written as baseline (not progressive) and uses the highest quality between 95 and 40 that fits under the size limit (binary search). If the file is still too big, the image is scaled down proportionally, but never below the minimum width/height; if that is not enough an error is shown.
 6. The data is written to the chosen file, then the file is analysed and checked again.
 
 | Format | Extensions | Image types it can store | Notes |
@@ -201,7 +206,7 @@ Adding a language: copy the "en" block in locals.json, change its code (e.g. "de
 .venv\Scripts\python.exe -m pytest -q
 ```
 
-127 automated tests (tests directory) cover:
+149 automated tests (tests directory) cover:
 
 - test_criteria.py - defaults, JSON round trip, partial files, every validation error.
 - test_analyzer.py - mode classification, DPI reading and rounding, missing DPI, EXIF orientation, invalid files, boundary values of every criterion.

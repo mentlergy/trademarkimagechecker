@@ -1,6 +1,6 @@
 # Trademark Image Checker
 
-_User manual (version 1.1.0)_
+_User manual (version 1.2.0)_
 
 This manual has two parts. Part I describes the everyday use of the program. Part II covers the advanced options: command line parameters, the language setting and the language file, and the structure of the criteria file.
 
@@ -44,7 +44,7 @@ If every criterion is met, a green button appears: "OK - the image meets all cri
 
 #### 5.2 The image does not meet the criteria
 
-There is a red button for every criterion that is not met. It shows the name of the criterion, the current value of the image and the requirement in brackets, for example: "Width: 4000 px (945-2835 px)". The possible buttons are File size, Width, Height, Resolution and Image type. For the resolution, "not set" is shown if the file does not store a DPI value.
+There is a red button for every criterion that is not met. It shows the name of the criterion, the current value of the image and the requirement in brackets, for example: "Width: 4000 px (945-2835 px)". The possible buttons are File size, Width, Height, Resolution, Image type and JPEG encoding. For the resolution, "not set" is shown if the file does not store a DPI value.
 
 ### 6. Fixing the values
 
@@ -53,9 +53,10 @@ There is a red button for every criterion that is not met. It shows the name of 
 3. If the value meets the criterion, the button turns white and shows the new value (e.g. "Width: 4000 px -> 2800 px"). If not, an error message is shown and the dialog stays open. Cancel discards the change and the button stays red.
 
 - **Width, height:** when the "Keep aspect ratio" check box is on (default), the other dimension is changed proportionally so the image is not distorted. If this moves the other dimension out of the allowed range, a red button appears for it too. The suggested values keep the aspect ratio whenever possible.
-- **Resolution:** a whole number in DPI. The resolution is only information stored in the file; it does not change the pixel size.
+- **Resolution:** a whole number in DPI between the minimum and maximum resolution (96-600 DPI by default). The resolution is only information stored in the file; it does not change the pixel size.
 - **File size:** the largest allowed size in MB (both decimal point and comma are accepted). When saving, the program lowers the JPEG quality or the image size if needed, so that the file fits.
 - **Image type:** choose one of the allowed types from the list.
+- **JPEG encoding:** for a progressive JPEG choose "baseline"; the program saves the image again as a baseline JPEG.
 
 ### 7. Converting and saving
 
@@ -73,7 +74,7 @@ When the last red button turns white, the program opens the save dialog automati
 | TIFF (.tif) | all | Lossless compression |
 | BMP (.bmp) | RGB, greyscale, B&W, palette | Uncompressed, large files |
 
-During conversion transparent areas get a white background (except for the RGBA type), the black and white conversion uses a 50% threshold, and the image is rotated according to the orientation stored by the camera.
+During conversion JPEG files are always written as baseline (not progressive), transparent areas get a white background (except for the RGBA type), the black and white conversion uses a 50% threshold, and the image is rotated according to the orientation stored by the camera.
 
 ### 8. Setting the criteria
 
@@ -85,7 +86,9 @@ During conversion transparent areas get a white background (except for the RGBA 
 | Maximum width (px) | 2835 |
 | Maximum height (px) | 2010 |
 | Minimum resolution (DPI) | 96 |
+| Maximum resolution (DPI) | 600 |
 | Allowed image types | RGB, greyscale, B&W, CMYK |
+| Progressive JPEG allowed | no (unchecked) |
 
 | Image type | Meaning |
 |---|---|
@@ -201,7 +204,9 @@ At start the program loads the criteria from criterias.json in the startup folde
   "max_width": 2835,
   "max_height": 2010,
   "min_dpi": 96.0,
-  "allowed_types": ["RGB", "greyscale", "B&W", "CMYK"]
+  "max_dpi": 600.0,
+  "allowed_types": ["RGB", "greyscale", "B&W", "CMYK"],
+  "allow_progressive_jpeg": false
 }
 ```
 
@@ -213,7 +218,9 @@ At start the program loads the criteria from criterias.json in the startup folde
 | max_width | Maximum width (px) | 2835 |
 | max_height | Maximum height (px) | 2010 |
 | min_dpi | Minimum resolution (DPI) | 96.0 |
+| max_dpi | Maximum resolution (DPI) | 600.0 |
 | allowed_types | Allowed image types | ["RGB", "greyscale", "B&W", "CMYK"] |
+| allow_progressive_jpeg | Progressive JPEG allowed | false (true = allowed) |
 
 Image types must be given by their id in the file:
 

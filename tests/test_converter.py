@@ -91,6 +91,18 @@ def test_cannot_fit_without_going_below_minimum(make_image, tmp_path):
         convert_image(src, settings(max_file_size=100 * 1024), tmp_path / "out.png")
 
 
+def test_jpeg_output_is_always_baseline(make_image, tmp_path):
+    src = make_image("progressive.jpg", progressive=True)
+    assert analyze(src).jpeg_encoding == "progressive"
+    result = convert_image(src, settings(), tmp_path / "out.jpg")
+    assert analyze(result.path).jpeg_encoding == "baseline"
+
+
+def test_separate_x_and_y_dpi(make_image, tmp_path):
+    result = convert_image(make_image("in.png"), settings(dpi=(300, 350)), tmp_path / "out.tif")
+    assert analyze(result.path).dpi == (300, 350)
+
+
 def test_exif_orientation_applied(make_image, tmp_path):
     exif = Image.Exif()
     exif[0x0112] = 6

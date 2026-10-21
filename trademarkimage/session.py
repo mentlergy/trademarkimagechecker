@@ -9,6 +9,9 @@ from .converter import ConversionSettings
 from .criteria import BYTES_PER_MB, Criteria
 from .i18n import tr
 
+# Properties whose new value is selected from a list instead of typed in.
+CHOICE_PROPS = (Prop.IMAGE_TYPE, Prop.JPEG_ENCODING)
+
 
 class Session:
     """Holds an analysed image, the criteria and the target values chosen by the user.
@@ -58,7 +61,7 @@ class Session:
         try:
             if prop is Prop.FILE_SIZE:
                 value = round(float(text.replace(",", ".")) * BYTES_PER_MB)
-            elif prop is Prop.IMAGE_TYPE:
+            elif prop in CHOICE_PROPS:
                 value = text
             else:
                 value = int(text)
@@ -99,11 +102,24 @@ class Session:
             low, high = (c.min_width, c.max_width) if prop is Prop.WIDTH else (c.min_height, c.max_height)
             return min(max(current, low), high)
         if prop is Prop.RESOLUTION:
+            current = self.targets[Prop.RESOLUTION]
+            if current is not None and max(_pair(current)) > c.max_dpi:
+                return max(math.floor(c.max_dpi), 1)
             return max(math.ceil(c.min_dpi), 1)
+        if prop is Prop.JPEG_ENCODING:
+            return "baseline"
         current = self.targets[Prop.IMAGE_TYPE]
         if current in ("RGBA", "palette") and "RGB" in c.allowed_types:
             return "RGB"
         return c.allowed_types[0]
+
+    def choices(self, prop: Prop) -> list[str]:
+        """The values that can be selected for a property chosen from a list."""
+        if prop is Prop.IMAGE_TYPE:
+            return list(self.criteria.allowed_types)
+        if prop is Prop.JPEG_ENCODING:
+            return ["baseline", "progressive"] if self.criteria.allow_progressive_jpeg else ["baseline"]
+        raise ValueError(f"{prop!r} is not chosen from a list")
 
     def fit_scale(self) -> float | None:
         """Scale factor closest to 1 that brings both dimensions into range, or None."""
@@ -123,10 +139,8 @@ class Session:
     def conversion_settings(self) -> ConversionSettings:
         if not self.all_valid:
             raise ValueError(tr("session.error.not_all_valid"))
-        resolution = self.targets[Prop.RESOLUTION]
-        dpi = round(resolution)
-        if dpi < self.criteria.min_dpi:
-            dpi = math.ceil(resolution)
+        x, y = (self._output_dpi(v) for v in _pair(self.targets[Prop.RESOLUTION]))
+        dpi = x if x == y else (x, y)
         # The file size only limits the output if the user chose a target for it;
         # otherwise the original size must not restrict the converted image.
         max_size = self.criteria.max_file_size_bytes
@@ -141,3 +155,17 @@ class Session:
             min_width=self.criteria.min_width,
             min_height=self.criteria.min_height,
         )
+
+    def _output_dpi(self, value: float) -> int:
+        """Whole DPI value (JPEG stores integers) that stays within the allowed range."""
+        dpi = round(value)
+        if dpi < self.criteria.min_dpi:
+            dpi = math.ceil(value)
+        if dpi > self.criteria.max_dpi:
+            dpi = math.floor(value)
+        return dpi
+
+
+def _pair(resolution) -> tuple[float, float]:
+    """A resolution target is either one number set by the user or the (x, y) values of the image."""
+    return tuple(resolution) if isinstance(resolution, tuple) else (resolution, resolution)

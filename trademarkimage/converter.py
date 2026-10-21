@@ -70,7 +70,7 @@ def default_save_format(original_format: str | None, image_type: str) -> str:
 class ConversionSettings:
     width: int
     height: int
-    dpi: int
+    dpi: int | tuple[int, int]  # one value for both axes, or (x, y)
     image_type: str
     max_file_size: int  # bytes
     # Lower limits used when the image has to be scaled down to fit the file size.
@@ -133,10 +133,11 @@ def prepare_image(img: Image.Image, settings: ConversionSettings) -> Image.Image
     return img
 
 
-def _encode(img: Image.Image, fmt: str, dpi: int, quality: int | None) -> bytes:
-    options: dict = {"dpi": (dpi, dpi)}
+def _encode(img: Image.Image, fmt: str, dpi, quality: int | None) -> bytes:
+    options: dict = {"dpi": dpi if isinstance(dpi, tuple) else (dpi, dpi)}
     if fmt == "JPEG":
-        options.update(quality=quality, optimize=True)
+        # Always baseline: progressive JPEG files are often rejected by upload systems.
+        options.update(quality=quality, optimize=True, progressive=False)
     elif fmt == "PNG":
         options.update(optimize=True)
     elif fmt == "TIFF":

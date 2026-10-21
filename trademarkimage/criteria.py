@@ -43,7 +43,9 @@ class Criteria:
     max_width: int = 2835
     max_height: int = 2010
     min_dpi: float = 96.0
+    max_dpi: float = 600.0
     allowed_types: list[str] = field(default_factory=lambda: list(DEFAULT_ALLOWED_TYPES))
+    allow_progressive_jpeg: bool = False
 
     @property
     def max_file_size_bytes(self) -> int:
@@ -63,6 +65,10 @@ class Criteria:
             problems.append(tr("criteria.error.height_range"))
         if self.min_dpi < 0:
             problems.append(tr("criteria.error.negative_dpi"))
+        if self.max_dpi <= 0:
+            problems.append(tr("criteria.error.max_dpi"))
+        elif self.min_dpi > self.max_dpi:
+            problems.append(tr("criteria.error.dpi_range"))
         if not self.allowed_types:
             problems.append(tr("criteria.error.no_types"))
         unknown = [t for t in self.allowed_types if t not in IMAGE_TYPES]
@@ -94,7 +100,11 @@ class Criteria:
                 if not isinstance(value, list) or not all(isinstance(v, str) for v in value):
                     raise CriteriaError(tr("criteria.error.types_list"))
                 values[name] = list(value)
-            elif name in ("max_file_size_mb", "min_dpi"):
+            elif name == "allow_progressive_jpeg":
+                if not isinstance(value, bool):
+                    raise CriteriaError(tr("criteria.error.not_bool", name=name))
+                values[name] = value
+            elif name in ("max_file_size_mb", "min_dpi", "max_dpi"):
                 if isinstance(value, bool) or not isinstance(value, (int, float)):
                     raise CriteriaError(tr("criteria.error.not_number", name=name))
                 values[name] = float(value)

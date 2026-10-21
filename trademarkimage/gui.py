@@ -15,7 +15,7 @@ from .converter import (SAVE_FORMATS, ConversionError, compatible_formats, conve
 from .criteria import (BYTES_PER_MB, IMAGE_TYPES, Criteria, CriteriaError, load_criteria, save_criteria,
                        type_label)
 from .i18n import tr
-from .session import Session
+from .session import CHOICE_PROPS, Session
 
 try:
     from tkinterdnd2 import DND_FILES, TkinterDnD
@@ -100,12 +100,12 @@ class ValueDialog(simpledialog.Dialog):
         unit = {Prop.FILE_SIZE: "MB", Prop.WIDTH: "px", Prop.HEIGHT: "px", Prop.RESOLUTION: "DPI"}.get(prop, "")
         ttk.Label(master, text=tr("dialog.value.new")).grid(row=2, column=0, sticky="w")
         suggestion = session.suggestion(prop)
-        if prop is Prop.IMAGE_TYPE:
-            # The list shows the localized names; they are mapped back to type ids in validate().
-            self.type_ids = {type_label(t): t for t in session.criteria.allowed_types}
-            self.value_var.set(type_label(suggestion))
+        if prop in CHOICE_PROPS:
+            # The list shows the localized names; they are mapped back to the ids in validate().
+            self.choice_ids = {format_value(prop, c): c for c in session.choices(prop)}
+            self.value_var.set(format_value(prop, suggestion))
             widget = ttk.Combobox(master, textvariable=self.value_var, state="readonly",
-                                  values=list(self.type_ids), width=24)
+                                  values=list(self.choice_ids), width=24)
         else:
             if prop is Prop.FILE_SIZE:
                 self.value_var.set(f"{suggestion / BYTES_PER_MB:g}")
@@ -118,8 +118,10 @@ class ValueDialog(simpledialog.Dialog):
         if prop in (Prop.WIDTH, Prop.HEIGHT):
             ttk.Checkbutton(master, text=tr("dialog.value.keep_aspect"), variable=self.keep_aspect).grid(
                 row=3, column=0, columnspan=3, sticky="w", pady=(8, 0))
-        if prop is Prop.FILE_SIZE:
-            ttk.Label(master, text=tr("dialog.value.file_size_hint"), foreground="gray").grid(
+        hint = {Prop.FILE_SIZE: "dialog.value.file_size_hint",
+                Prop.JPEG_ENCODING: "dialog.value.jpeg_hint"}.get(prop)
+        if hint:
+            ttk.Label(master, text=tr(hint), foreground="gray").grid(
                 row=3, column=0, columnspan=3, sticky="w", pady=(8, 0))
         return widget
 
@@ -134,8 +136,8 @@ class ValueDialog(simpledialog.Dialog):
 
     def validate(self):
         text = self.value_var.get()
-        if self.prop is Prop.IMAGE_TYPE:
-            text = self.type_ids.get(text, text)
+        if self.prop in CHOICE_PROPS:
+            text = self.choice_ids.get(text, text)
         try:
             self._value = self.session.parse_value(self.prop, text)
         except ValueError as exc:
@@ -148,13 +150,15 @@ class ValueDialog(simpledialog.Dialog):
 
 
 class CriteriaPanel(ttk.LabelFrame):
-    FIELDS = ["max_file_size_mb", "min_width", "min_height", "max_width", "max_height", "min_dpi"]
+    FIELDS = ["max_file_size_mb", "min_width", "min_height", "max_width", "max_height", "min_dpi", "max_dpi"]
+    DECIMAL_FIELDS = ("max_file_size_mb", "min_dpi", "max_dpi")
 
     def __init__(self, parent, app: App):
         super().__init__(parent, text=tr("criteria.title"), padding=8)
         self.app = app
         self.vars = {name: tk.StringVar(self) for name in self.FIELDS}
         self.type_vars = {name: tk.BooleanVar(self) for name in IMAGE_TYPES}
+        self.progressive_var = tk.BooleanVar(self)
 
         for row, name in enumerate(self.FIELDS):
             ttk.Label(self, text=tr(f"criteria.field.{name}")).grid(row=row, column=0, sticky="w", pady=2)
@@ -165,21 +169,24 @@ class CriteriaPanel(ttk.LabelFrame):
         for i, name in enumerate(IMAGE_TYPES):
             ttk.Checkbutton(types, text=type_label(name), variable=self.type_vars[name]).grid(
                 row=i, column=0, sticky="w")
+        ttk.Checkbutton(self, text=tr("criteria.allow_progressive"), variable=self.progressive_var).grid(
+            row=len(self.FIELDS) + 1, column=0, columnspan=2, sticky="w")
 
         buttons = ttk.Frame(self)
-        buttons.grid(row=len(self.FIELDS) + 1, column=0, columnspan=2, sticky="ew", pady=(8, 0))
+        buttons.grid(row=len(self.FIELDS) + 2, column=0, columnspan=2, sticky="ew", pady=(8, 0))
         ttk.Button(buttons, text=tr("criteria.apply"), command=app.apply_criteria).pack(fill="x")
         ttk.Button(buttons, text=tr("criteria.load"), command=app.load_criteria_file).pack(fill="x", pady=(4, 0))
         ttk.Button(buttons, text=tr("criteria.save"), command=app.save_criteria_file).pack(fill="x", pady=(4, 0))
 
         self.source_label = ttk.Label(self, text="", foreground="gray", wraplength=240)
-        self.source_label.grid(row=len(self.FIELDS) + 2, column=0, columnspan=2, sticky="w", pady=(8, 0))
+        self.source_label.grid(row=len(self.FIELDS) + 3, column=0, columnspan=2, sticky="w", pady=(8, 0))
 
     def show(self, criteria: Criteria, source: str) -> None:
         for name in self.FIELDS:
             self.vars[name].set(f"{getattr(criteria, name):g}")
         for name, var in self.type_vars.items():
             var.set(name in criteria.allowed_types)
+        self.progressive_var.set(criteria.allow_progressive_jpeg)
         self.source_label.config(text=source)
 
     def read(self) -> Criteria:
@@ -192,12 +199,13 @@ class CriteriaPanel(ttk.LabelFrame):
                 number = float(text)
             except ValueError:
                 raise CriteriaError(tr("criteria.input.not_number", label=label, text=text)) from None
-            if name not in ("max_file_size_mb", "min_dpi"):
+            if name not in self.DECIMAL_FIELDS:
                 if number != int(number):
                     raise CriteriaError(tr("criteria.input.not_whole", label=label))
                 number = int(number)
             data[name] = number
         data["allowed_types"] = [name for name, var in self.type_vars.items() if var.get()]
+        data["allow_progressive_jpeg"] = self.progressive_var.get()
         return Criteria.from_dict(data)
 
 
@@ -209,7 +217,7 @@ class App:
         self.session: Session | None = None
         self._preview = None
         self.main: ttk.Frame | None = None
-        root.minsize(860, 580)
+        root.minsize(860, 640)
         self.build_ui()
 
     def build_ui(self) -> None:
@@ -361,8 +369,11 @@ class App:
     def _show_info(self) -> None:
         info = self.session.info
         dpi = tr("info.dpi", x=info.dpi[0], y=info.dpi[1]) if info.dpi else tr("value.not_set")
+        fmt = info.format or tr("info.unknown_format")
+        if info.jpeg_encoding:
+            fmt = f"{fmt} ({format_value(Prop.JPEG_ENCODING, info.jpeg_encoding)})"
         self.info_label.config(text=tr(
-            "info.text", path=info.path, format=info.format or tr("info.unknown_format"), mode=info.mode,
+            "info.text", path=info.path, format=fmt, mode=info.mode,
             type=type_label(info.image_type), width=info.width, height=info.height, dpi=dpi,
             size=format_value(Prop.FILE_SIZE, info.file_size)))
 

@@ -77,9 +77,41 @@ def test_check_value_limits(prop, value, ok):
     assert check_value(prop, value, Criteria()) is ok
 
 
+def test_progressive_jpeg_detected(make_image):
+    progressive = analyze(make_image("p.jpg", progressive=True))
+    baseline = analyze(make_image("b.jpg"))
+    png = analyze(make_image("x.png"))
+    assert progressive.jpeg_encoding == "progressive"
+    assert baseline.jpeg_encoding == "baseline"
+    assert png.jpeg_encoding is None
+    assert check_image(progressive, Criteria()) == [Prop.JPEG_ENCODING]
+    assert check_image(progressive, Criteria(allow_progressive_jpeg=True)) == []
+    assert check_image(baseline, Criteria()) == [] and check_image(png, Criteria()) == []
+
+
+def test_resolution_upper_limit(make_image):
+    assert check_image(analyze(make_image("hi.jpg", dpi=(700, 700))), Criteria()) == [Prop.RESOLUTION]
+    # The larger of the two values must not exceed the maximum.
+    assert check_image(analyze(make_image("mixed.png", dpi=(300, 700))), Criteria()) == [Prop.RESOLUTION]
+    assert check_image(analyze(make_image("ok.jpg", dpi=(600, 600))), Criteria()) == []
+
+
+@pytest.mark.parametrize("value, ok", [
+    (95.9, False), (96, True), (600, True), (600.1, False), ((96, 600), True), ((95, 300), False),
+    ((300, 601), False), (None, False),
+])
+def test_resolution_range(value, ok):
+    assert check_value(Prop.RESOLUTION, value, Criteria()) is ok
+
+
 def test_formatting():
     c = Criteria()
     assert format_value(Prop.FILE_SIZE, 3 * 1024 * 1024) == "3.00 MB"
     assert format_value(Prop.RESOLUTION, None) == "not set"
+    assert format_value(Prop.RESOLUTION, (300.0, 300.0)) == "300 DPI"
+    assert format_value(Prop.RESOLUTION, (300.0, 72.0)) == "300 x 72 DPI"
+    assert format_value(Prop.JPEG_ENCODING, "progressive") == "progressive"
+    assert describe_requirement(Prop.RESOLUTION, c) == "96-600 DPI"
+    assert describe_requirement(Prop.JPEG_ENCODING, c) == "baseline only, not progressive"
     assert describe_requirement(Prop.WIDTH, c) == "945-2835 px"
     assert describe_requirement(Prop.IMAGE_TYPE, c) == "allowed: RGB, greyscale, B&W, CMYK"

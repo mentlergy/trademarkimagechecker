@@ -5,10 +5,12 @@
   "max_width": 2835,
   "max_height": 2010,
   "min_dpi": 96.0,
+  "max_dpi": 600.0,
   "allowed_types": [
     "RGB",
     "greyscale",
     "B&W",
     "CMYK"
-  ]
+  ],
+  "allow_progressive_jpeg": false
 }

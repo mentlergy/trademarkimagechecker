@@ -1,6 +1,6 @@
 # Védjegykép-ellenőrző
 
-_Felhasználói kézikönyv (Trademark Image Checker, 1.1.0 verzió)_
+_Felhasználói kézikönyv (Trademark Image Checker, 1.2.0 verzió)_
 
 A kézikönyv két részből áll. Az I. rész a program mindennapi használatát írja le. A II. rész a haladó lehetőségeket mutatja be: a parancssori paramétereket, a nyelv beállítását és a nyelvi fájlt, valamint a feltételfájl felépítését.
 
@@ -44,7 +44,7 @@ Ha minden feltétel teljesül, egy zöld gomb jelenik meg: „OK - a kép minden
 
 #### 5.2 A kép nem felel meg
 
-Minden nem teljesülő feltételhez egy piros gomb tartozik, amelyen a feltétel neve, a kép jelenlegi értéke és zárójelben a követelmény olvasható, például: „Szélesség: 4000 px (945-2835 px)”. A lehetséges gombok: Fájlméret, Szélesség, Magasság, Felbontás és Képtípus. A felbontásnál „nincs megadva” látható, ha a fájl nem tárol DPI értéket.
+Minden nem teljesülő feltételhez egy piros gomb tartozik, amelyen a feltétel neve, a kép jelenlegi értéke és zárójelben a követelmény olvasható, például: „Szélesség: 4000 px (945-2835 px)”. A lehetséges gombok: Fájlméret, Szélesség, Magasság, Felbontás, Képtípus és JPEG kódolás. A felbontásnál „nincs megadva” látható, ha a fájl nem tárol DPI értéket.
 
 ### 6. A hibás értékek javítása
 
@@ -53,9 +53,10 @@ Minden nem teljesülő feltételhez egy piros gomb tartozik, amelyen a feltétel
 3. Ha az érték megfelel a feltételnek, a gomb fehér lesz, és az új értéket mutatja (pl. „Szélesség: 4000 px -> 2800 px”). Ha nem felel meg, hibaüzenet jelenik meg, és az ablak nyitva marad. A Mégse gombbal a változtatás elvethető, a gomb piros marad.
 
 - **Szélesség, magasság:** a „Méretarány megtartása” jelölőnégyzet bekapcsolva (alapértelmezés) a másik méretet is arányosan módosítja, így a kép nem torzul. Ha emiatt a másik méret kerül a megengedett tartományon kívülre, arra is megjelenik egy piros gomb. A felajánlott értékek - ha lehetséges - megtartják a képarányt.
-- **Felbontás:** egész szám DPI-ben. A felbontás csak a fájlban tárolt adat, a pixelméretet nem változtatja.
+- **Felbontás:** egész szám DPI-ben, a legkisebb és a legnagyobb felbontás között (alapesetben 96-600 DPI). A felbontás csak a fájlban tárolt adat, a pixelméretet nem változtatja.
 - **Fájlméret:** a megengedett legnagyobb méret MB-ban (tizedesvessző és -pont is használható). A program a mentéskor szükség esetén csökkenti a JPEG minőséget, illetve a képméretet, hogy a fájl beleférjen.
 - **Képtípus:** a listából választható ki a megengedett típusok egyike.
+- **JPEG kódolás:** progresszív JPEG esetén válassza az „alap (baseline)” értéket; a program a képet alap JPEG-ként menti újra.
 
 ### 7. Átalakítás és mentés
 
@@ -73,7 +74,7 @@ Amikor az utolsó piros gomb is fehér lesz, a program automatikusan megnyitja a
 | TIFF (.tif) | mind | Veszteségmentes tömörítés |
 | BMP (.bmp) | RGB, szürkeárnyalatos, fekete-fehér, palettás | Tömörítetlen, nagy fájlok |
 
-Átalakításkor az átlátszó részek fehér hátteret kapnak (kivéve RGBA típus esetén), a fekete-fehér átalakítás 50%-os küszöbbel történik, a kép pedig a fényképezőgép által tárolt tájolás szerint elforgatásra kerül.
+Átalakításkor a JPEG fájlok mindig alap (nem progresszív) kódolással készülnek, az átlátszó részek fehér hátteret kapnak (kivéve RGBA típus esetén), a fekete-fehér átalakítás 50%-os küszöbbel történik, a kép pedig a fényképezőgép által tárolt tájolás szerint elforgatásra kerül.
 
 ### 8. A feltételek beállítása
 
@@ -85,7 +86,9 @@ Amikor az utolsó piros gomb is fehér lesz, a program automatikusan megnyitja a
 | Legnagyobb szélesség (px) | 2835 |
 | Legnagyobb magasság (px) | 2010 |
 | Legkisebb felbontás (DPI) | 96 |
+| Legnagyobb felbontás (DPI) | 600 |
 | Megengedett képtípusok | RGB, szürkeárnyalatos, fekete-fehér, CMYK |
+| Progresszív JPEG megengedett | nem (kikapcsolva) |
 
 | Képtípus | Jelentése |
 |---|---|
@@ -200,7 +203,9 @@ Induláskor a program az indítási könyvtárban lévő criterias.json fájlbó
   "max_width": 2835,
   "max_height": 2010,
   "min_dpi": 96.0,
-  "allowed_types": ["RGB", "greyscale", "B&W", "CMYK"]
+  "max_dpi": 600.0,
+  "allowed_types": ["RGB", "greyscale", "B&W", "CMYK"],
+  "allow_progressive_jpeg": false
 }
 ```
 
@@ -212,7 +217,9 @@ Induláskor a program az indítási könyvtárban lévő criterias.json fájlbó
 | max_width | Legnagyobb szélesség (px) | 2835 |
 | max_height | Legnagyobb magasság (px) | 2010 |
 | min_dpi | Legkisebb felbontás (DPI) | 96.0 |
+| max_dpi | Legnagyobb felbontás (DPI) | 600.0 |
 | allowed_types | Megengedett képtípusok | ["RGB", "greyscale", "B&W", "CMYK"] |
+| allow_progressive_jpeg | Progresszív JPEG megengedett | false (true = megengedett) |
 
 A képtípusokat a fájlban az azonosítójukkal kell megadni:
 

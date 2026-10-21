@@ -11,12 +11,15 @@ def test_defaults_match_specification():
     assert c.max_file_size_bytes == 2 * 1024 * 1024
     assert (c.min_width, c.min_height, c.max_width, c.max_height) == (945, 945, 2835, 2010)
     assert c.min_dpi == 96
+    assert c.max_dpi == 600
     assert c.allowed_types == ["RGB", "greyscale", "B&W", "CMYK"]
+    assert c.allow_progressive_jpeg is False
     assert c.errors() == []
 
 
 def test_save_and_load_roundtrip(tmp_path):
-    c = Criteria(max_file_size_mb=1.5, min_width=500, min_dpi=300, allowed_types=["RGB"])
+    c = Criteria(max_file_size_mb=1.5, min_width=500, min_dpi=300, max_dpi=1200, allowed_types=["RGB"],
+                 allow_progressive_jpeg=True)
     path = tmp_path / "c.json"
     save_criteria(c, path)
     assert json.loads(path.read_text(encoding="utf-8"))["min_width"] == 500
@@ -29,6 +32,8 @@ def test_partial_file_uses_defaults(tmp_path):
     c = load_criteria(path)
     assert c.min_dpi == 300
     assert c.max_width == 2835
+    # Files written before max_dpi / allow_progressive_jpeg existed still load.
+    assert c.max_dpi == 600 and c.allow_progressive_jpeg is False
 
 
 @pytest.mark.parametrize("content, message", [
@@ -43,6 +48,10 @@ def test_partial_file_uses_defaults(tmp_path):
     ('{"allowed_types": []}', "At least one"),
     ('{"min_width": 3000}', "greater than maximum width"),
     ('{"max_file_size_mb": 0}', "greater than 0"),
+    ('{"max_dpi": 0}', "Maximum resolution must be greater than 0"),
+    ('{"min_dpi": 700}', "Minimum resolution is greater than maximum resolution"),
+    ('{"max_dpi": "600"}', "max_dpi must be a number"),
+    ('{"allow_progressive_jpeg": 1}', "must be true or false"),
 ])
 def test_invalid_files_are_rejected(tmp_path, content, message):
     path = tmp_path / "c.json"

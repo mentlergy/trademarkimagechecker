@@ -94,6 +94,29 @@ def test_full_fix_and_convert_workflow(app, make_image, tmp_path):
     assert app.ok_button is not None
 
 
+def test_progressive_jpeg_workflow(app, make_image, tmp_path):
+    app.open_image(make_image("progressive.jpg", size=(1000, 1000), progressive=True))
+    assert list(app.prop_buttons) == [Prop.JPEG_ENCODING]
+    assert app.prop_buttons[Prop.JPEG_ENCODING].cget("bg").lower() == RED
+    assert "JPEG (progressive)" in app.info_label.cget("text")
+    app.ask_value = lambda prop: ("baseline", False)
+    app.ask_save_path = lambda fmt: (str(tmp_path / "fixed.jpg"), fmt)
+    app.prop_buttons[Prop.JPEG_ENCODING].invoke()
+    assert analyze(tmp_path / "fixed.jpg").jpeg_encoding == "baseline"
+    assert app.ok_button is not None
+
+
+def test_criteria_panel_new_fields(app, make_image):
+    app.open_image(make_image("progressive.jpg", size=(1000, 1000), dpi=(700, 700), progressive=True))
+    assert list(app.prop_buttons) == [Prop.RESOLUTION, Prop.JPEG_ENCODING]
+    assert app.criteria_panel.vars["max_dpi"].get() == "600"
+    app.criteria_panel.vars["max_dpi"].set("1200")
+    app.criteria_panel.progressive_var.set(True)
+    app.apply_criteria()
+    assert app.criteria.max_dpi == 1200 and app.criteria.allow_progressive_jpeg
+    assert app.ok_button is not None
+
+
 def test_cancel_value_dialog_keeps_red(app, make_image):
     app.open_image(make_image("bad.png", size=(4000, 2000)))
     app.ask_value = lambda prop: None

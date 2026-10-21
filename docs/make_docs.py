@@ -175,7 +175,7 @@ class MarkdownDoc:
 
 
 def technical_en(Doc):
-    d = Doc("Trademark Image Checker", "Technical documentation - design, installation and operation (version 1.1.0)")
+    d = Doc("Trademark Image Checker", "Technical documentation - design, installation and operation (version 1.2.0)")
 
     d.h1("1. Purpose")
     d.p("Trademark Image Checker is a Windows desktop program that examines a raster image against a "
@@ -297,8 +297,10 @@ dist\\TrademarkImage.exe [options] [IMAGE]
         ["max_width", "2835", "Maximum width in pixels."],
         ["max_height", "2010", "Maximum height in pixels."],
         ["min_dpi", "96.0", "Minimum resolution in DPI (the smaller of the horizontal and vertical value is used)."],
+        ["max_dpi", "600.0", "Maximum resolution in DPI (the larger of the horizontal and vertical value is used)."],
         ["allowed_types", '["RGB", "greyscale", "B&W", "CMYK"]',
          "Allowed image types. Known types: RGB, RGBA, greyscale, B&W, CMYK, palette."],
+        ["allow_progressive_jpeg", "false", "If false, progressive JPEG files fail the check (baseline JPEG required). Other formats are not affected."],
     ], widths=[100, 130, 240])
     d.p("Example (criterias.example.json):")
     d.code("""
@@ -309,7 +311,9 @@ dist\\TrademarkImage.exe [options] [IMAGE]
   "max_width": 2835,
   "max_height": 2010,
   "min_dpi": 96.0,
-  "allowed_types": ["RGB", "greyscale", "B&W", "CMYK"]
+  "max_dpi": 600.0,
+  "allowed_types": ["RGB", "greyscale", "B&W", "CMYK"],
+  "allow_progressive_jpeg": false
 }
 """)
     d.bullets([
@@ -329,8 +333,9 @@ dist\\TrademarkImage.exe [options] [IMAGE]
         ["File size", "Size of the file on disk", "0 < size <= max_file_size_mb x 1 048 576"],
         ["Width / Height", "Pixel size after applying the EXIF orientation tag", "min <= value <= max"],
         ["Resolution", "dpi info (JPEG JFIF/EXIF, PNG pHYs, TIFF, BMP); JFIF dots/cm converted; "
-                       "rounded to 0.1 DPI", "smaller of x/y DPI >= min_dpi; a missing value fails"],
+                       "rounded to 0.1 DPI", "smaller of x/y DPI >= min_dpi and larger <= max_dpi; a missing value fails"],
         ["Image type", "Pillow mode mapped to a type name", "type is in allowed_types"],
+        ["JPEG encoding", "JPEG files only: Pillow reports 'progressive' for a progressive (SOF2) file", "baseline, or allow_progressive_jpeg is true; other formats always pass"],
     ], widths=[85, 210, 175])
     d.table(["Pillow mode(s)", "Image type"], [
         ["1", "B&W"],
@@ -366,7 +371,7 @@ dist\\TrademarkImage.exe [options] [IMAGE]
         "The type is converted: B&W uses a fixed threshold of 128 (no dithering, keeps logos crisp); palette "
         "uses an adaptive 256 colour palette; CMYK uses Pillow's plain RGB->CMYK conversion (no ICC colour "
         "management).",
-        "The image is encoded in memory with the chosen DPI. JPEG uses the highest quality between 95 and 40 "
+        "The image is encoded in memory with the chosen DPI (the original x/y values are kept when the resolution was not changed). JPEG is always written as baseline (not progressive) and uses the highest quality between 95 and 40 "
         "that fits under the size limit (binary search). If the file is still too big, the image is scaled down "
         "proportionally, but never below the minimum width/height; if that is not enough an error is shown.",
         "The data is written to the chosen file, then the file is analysed and checked again.",
@@ -421,7 +426,7 @@ dist\\TrademarkImage.exe [options] [IMAGE]
 
     d.h1("9. Tests")
     d.code(".venv\\Scripts\\python.exe -m pytest -q")
-    d.p("127 automated tests (tests directory) cover:")
+    d.p("149 automated tests (tests directory) cover:")
     d.bullets([
         "test_criteria.py - defaults, JSON round trip, partial files, every validation error.",
         "test_analyzer.py - mode classification, DPI reading and rounding, missing DPI, EXIF orientation, "
@@ -502,13 +507,15 @@ CRITERIA_EXAMPLE = """
   "max_width": 2835,
   "max_height": 2010,
   "min_dpi": 96.0,
-  "allowed_types": ["RGB", "greyscale", "B&W", "CMYK"]
+  "max_dpi": 600.0,
+  "allowed_types": ["RGB", "greyscale", "B&W", "CMYK"],
+  "allow_progressive_jpeg": false
 }
 """
 
 
 def user_guide_hu(Doc):
-    d = Doc("Védjegykép-ellenőrző", "Felhasználói kézikönyv (Trademark Image Checker, 1.1.0 verzió)")
+    d = Doc("Védjegykép-ellenőrző", "Felhasználói kézikönyv (Trademark Image Checker, 1.2.0 verzió)")
     d.p("A kézikönyv két részből áll. Az I. rész a program mindennapi használatát írja le. A II. rész a "
         "haladó lehetőségeket mutatja be: a parancssori paramétereket, a nyelv beállítását és a nyelvi fájlt, "
         "valamint a feltételfájl felépítését.")
@@ -561,7 +568,7 @@ def user_guide_hu(Doc):
     d.h3("5.2 A kép nem felel meg")
     d.p("Minden nem teljesülő feltételhez egy piros gomb tartozik, amelyen a feltétel neve, a kép jelenlegi "
         "értéke és zárójelben a követelmény olvasható, például: „Szélesség: 4000 px (945-2835 px)”. "
-        "A lehetséges gombok: Fájlméret, Szélesség, Magasság, Felbontás és Képtípus. A felbontásnál "
+        "A lehetséges gombok: Fájlméret, Szélesség, Magasság, Felbontás, Képtípus és JPEG kódolás. A felbontásnál "
         "„nincs megadva” látható, ha a fájl nem tárol DPI értéket.")
 
     d.h2("6. A hibás értékek javítása")
@@ -578,12 +585,13 @@ def user_guide_hu(Doc):
                                   "másik méretet is arányosan módosítja, így a kép nem torzul. Ha emiatt a "
                                   "másik méret kerül a megengedett tartományon kívülre, arra is megjelenik egy "
                                   "piros gomb. A felajánlott értékek - ha lehetséges - megtartják a képarányt."),
-        ("Felbontás: ", "egész szám DPI-ben. A felbontás csak a fájlban tárolt adat, a pixelméretet nem "
+        ("Felbontás: ", "egész szám DPI-ben, a legkisebb és a legnagyobb felbontás között (alapesetben 96-600 DPI). A felbontás csak a fájlban tárolt adat, a pixelméretet nem "
                         "változtatja."),
         ("Fájlméret: ", "a megengedett legnagyobb méret MB-ban (tizedesvessző és -pont is használható). A "
                         "program a mentéskor szükség esetén csökkenti a JPEG minőséget, illetve a képméretet, "
                         "hogy a fájl beleférjen."),
         ("Képtípus: ", "a listából választható ki a megengedett típusok egyike."),
+        ("JPEG kódolás: ", "progresszív JPEG esetén válassza az „alap (baseline)” értéket; a program a képet alap JPEG-ként menti újra."),
     ])
 
     d.h2("7. Átalakítás és mentés")
@@ -604,7 +612,7 @@ def user_guide_hu(Doc):
         ["TIFF (.tif)", "mind", "Veszteségmentes tömörítés"],
         ["BMP (.bmp)", "RGB, szürkeárnyalatos, fekete-fehér, palettás", "Tömörítetlen, nagy fájlok"],
     ], widths=[85, 175, 210])
-    d.p("Átalakításkor az átlátszó részek fehér hátteret kapnak (kivéve RGBA típus esetén), a fekete-fehér "
+    d.p("Átalakításkor a JPEG fájlok mindig alap (nem progresszív) kódolással készülnek, az átlátszó részek fehér hátteret kapnak (kivéve RGBA típus esetén), a fekete-fehér "
         "átalakítás 50%-os küszöbbel történik, a kép pedig a fényképezőgép által tárolt tájolás szerint "
         "elforgatásra kerül.")
 
@@ -616,7 +624,9 @@ def user_guide_hu(Doc):
         ["Legnagyobb szélesség (px)", "2835"],
         ["Legnagyobb magasság (px)", "2010"],
         ["Legkisebb felbontás (DPI)", "96"],
+        ["Legnagyobb felbontás (DPI)", "600"],
         ["Megengedett képtípusok", "RGB, szürkeárnyalatos, fekete-fehér, CMYK"],
+        ["Progresszív JPEG megengedett", "nem (kikapcsolva)"],
     ], widths=[200, 270])
     d.table(["Képtípus", "Jelentése"], [
         ["RGB (színes)", "Színes kép"],
@@ -737,7 +747,9 @@ TrademarkImage.exe --locals sajat_szovegek.json
         ["max_width", "Legnagyobb szélesség (px)", "2835"],
         ["max_height", "Legnagyobb magasság (px)", "2010"],
         ["min_dpi", "Legkisebb felbontás (DPI)", "96.0"],
+        ["max_dpi", "Legnagyobb felbontás (DPI)", "600.0"],
         ["allowed_types", "Megengedett képtípusok", "[\"RGB\", \"greyscale\", \"B&W\", \"CMYK\"]"],
+        ["allow_progressive_jpeg", "Progresszív JPEG megengedett", "false (true = megengedett)"],
     ], widths=[120, 180, 170])
     d.p("A képtípusokat a fájlban az azonosítójukkal kell megadni:")
     d.table(["Azonosító a fájlban", "Képtípus a felületen"], [
@@ -771,7 +783,7 @@ TrademarkImage.exe --locals sajat_szovegek.json
 
 
 def user_guide_en(Doc):
-    d = Doc("Trademark Image Checker", "User manual (version 1.1.0)")
+    d = Doc("Trademark Image Checker", "User manual (version 1.2.0)")
     d.p("This manual has two parts. Part I describes the everyday use of the program. Part II covers the "
         "advanced options: command line parameters, the language setting and the language file, and the "
         "structure of the criteria file.")
@@ -823,7 +835,7 @@ def user_guide_en(Doc):
     d.h3("5.2 The image does not meet the criteria")
     d.p("There is a red button for every criterion that is not met. It shows the name of the criterion, the "
         "current value of the image and the requirement in brackets, for example: \"Width: 4000 px (945-2835 "
-        "px)\". The possible buttons are File size, Width, Height, Resolution and Image type. For the resolution, "
+        "px)\". The possible buttons are File size, Width, Height, Resolution, Image type and JPEG encoding. For the resolution, "
         "\"not set\" is shown if the file does not store a DPI value.")
 
     d.h2("6. Fixing the values")
@@ -840,12 +852,13 @@ def user_guide_en(Doc):
                             "changed proportionally so the image is not distorted. If this moves the other "
                             "dimension out of the allowed range, a red button appears for it too. The suggested "
                             "values keep the aspect ratio whenever possible."),
-        ("Resolution: ", "a whole number in DPI. The resolution is only information stored in the file; it does "
+        ("Resolution: ", "a whole number in DPI between the minimum and maximum resolution (96-600 DPI by default). The resolution is only information stored in the file; it does "
                          "not change the pixel size."),
         ("File size: ", "the largest allowed size in MB (both decimal point and comma are accepted). When "
                         "saving, the program lowers the JPEG quality or the image size if needed, so that the file "
                         "fits."),
         ("Image type: ", "choose one of the allowed types from the list."),
+        ("JPEG encoding: ", "for a progressive JPEG choose \"baseline\"; the program saves the image again as a baseline JPEG."),
     ])
 
     d.h2("7. Converting and saving")
@@ -866,7 +879,7 @@ def user_guide_en(Doc):
         ["TIFF (.tif)", "all", "Lossless compression"],
         ["BMP (.bmp)", "RGB, greyscale, B&W, palette", "Uncompressed, large files"],
     ], widths=[85, 175, 210])
-    d.p("During conversion transparent areas get a white background (except for the RGBA type), the black and "
+    d.p("During conversion JPEG files are always written as baseline (not progressive), transparent areas get a white background (except for the RGBA type), the black and "
         "white conversion uses a 50% threshold, and the image is rotated according to the orientation stored by "
         "the camera.")
 
@@ -878,7 +891,9 @@ def user_guide_en(Doc):
         ["Maximum width (px)", "2835"],
         ["Maximum height (px)", "2010"],
         ["Minimum resolution (DPI)", "96"],
+        ["Maximum resolution (DPI)", "600"],
         ["Allowed image types", "RGB, greyscale, B&W, CMYK"],
+        ["Progressive JPEG allowed", "no (unchecked)"],
     ], widths=[200, 270])
     d.table(["Image type", "Meaning"], [
         ["RGB", "Colour image"],
@@ -1000,7 +1015,9 @@ TrademarkImage.exe --locals my_texts.json
         ["max_width", "Maximum width (px)", "2835"],
         ["max_height", "Maximum height (px)", "2010"],
         ["min_dpi", "Minimum resolution (DPI)", "96.0"],
+        ["max_dpi", "Maximum resolution (DPI)", "600.0"],
         ["allowed_types", "Allowed image types", "[\"RGB\", \"greyscale\", \"B&W\", \"CMYK\"]"],
+        ["allow_progressive_jpeg", "Progressive JPEG allowed", "false (true = allowed)"],
     ], widths=[120, 180, 170])
     d.p("Image types must be given by their id in the file:")
     d.table(["Id in the file", "Image type in the window (English / Hungarian)"], [

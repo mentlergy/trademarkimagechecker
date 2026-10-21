@@ -89,6 +89,42 @@ def test_file_size_target_limits_conversion(make_image):
     assert session.conversion_settings().max_file_size == MB // 2
 
 
+def test_progressive_jpeg_fix(make_image):
+    session = Session(analyze(make_image("p.jpg", progressive=True)), Criteria())
+    assert session.flagged == [Prop.JPEG_ENCODING]
+    assert "JPEG encoding: progressive  (baseline only, not progressive)" == session.button_text(Prop.JPEG_ENCODING)
+    assert session.choices(Prop.JPEG_ENCODING) == ["baseline"]
+    assert session.suggestion(Prop.JPEG_ENCODING) == "baseline"
+    with pytest.raises(ValueError):
+        session.parse_value(Prop.JPEG_ENCODING, "progressive")
+    session.set_target(Prop.JPEG_ENCODING, session.parse_value(Prop.JPEG_ENCODING, "baseline"))
+    assert session.all_valid
+    assert session.button_text(Prop.JPEG_ENCODING) == "JPEG encoding: progressive -> baseline"
+
+
+def test_progressive_choices_when_allowed(make_image):
+    session = Session(analyze(make_image("b.jpg")), Criteria(allow_progressive_jpeg=True))
+    assert session.choices(Prop.JPEG_ENCODING) == ["baseline", "progressive"]
+
+
+def test_resolution_above_maximum(make_image):
+    session = Session(analyze(make_image("hi.png", dpi=(1200, 1200))), Criteria())
+    assert session.flagged == [Prop.RESOLUTION]
+    assert session.suggestion(Prop.RESOLUTION) == 600
+    with pytest.raises(ValueError, match="96-600 DPI"):
+        session.parse_value(Prop.RESOLUTION, "601")
+    session.set_target(Prop.RESOLUTION, 600)
+    assert session.conversion_settings().dpi == 600
+
+
+def test_unflagged_resolution_keeps_x_and_y(make_image):
+    session = Session(analyze(make_image("wide.png", size=(4000, 1000), dpi=(300, 350))), Criteria())
+    assert Prop.RESOLUTION not in session.flagged
+    session.set_target(Prop.WIDTH, 2000)
+    session.set_target(Prop.HEIGHT, 1000)
+    assert session.conversion_settings().dpi == (300, 350)
+
+
 def test_conversion_settings_require_valid_values(bad_session):
     with pytest.raises(ValueError):
         bad_session.conversion_settings()
