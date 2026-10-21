@@ -55,7 +55,7 @@ dist\TrademarkImage.exe [options] [IMAGE]
 
 ### 2.5 Command line checking and messages
 
-The command line is parsed by app.parse_args (not argparse, so that every message can be localized). Values can be given as '--config FILE' or '--config=FILE'. app.process_command_line then checks it and returns a Startup object (run, help, version or error):
+The command line is parsed by app.parse_args (not argparse, so that every message can be localized). Values can be given as '--config FILE' or '--config=FILE', also with spaces around the equals sign ('--config= FILE', '--config =FILE', '--config = FILE'); parameter names are case-insensitive, values are kept as given. app.process_command_line then checks it and returns a Startup object (run, help, version or error):
 
 - Missing value (e.g. --config at the end, or followed by another parameter), a parameter given twice, an unknown parameter or more than one image file are errors.
 - --config and --locals must name an existing file that can be loaded as a criteria file / localization file; an incompatible file (e.g. an image, or a localization file given as --config) is an error that includes the reason.
@@ -207,7 +207,7 @@ Adding a language: copy the "en" block in locals.json, change its code (e.g. "de
 .venv\Scripts\python.exe -m pytest -q
 ```
 
-151 automated tests (tests directory) cover:
+162 automated tests (tests directory) cover:
 
 - test_criteria.py - defaults, JSON round trip, partial files, every validation error.
 - test_analyzer.py - mode classification, DPI reading and rounding, missing DPI, EXIF orientation, invalid files, boundary values of every criterion.

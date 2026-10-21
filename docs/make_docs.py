@@ -229,7 +229,9 @@ dist\\TrademarkImage.exe [options] [IMAGE]
     ], widths=[100, 370])
     d.h2("2.5 Command line checking and messages")
     d.p("The command line is parsed by app.parse_args (not argparse, so that every message can be localized). "
-        "Values can be given as '--config FILE' or '--config=FILE'. app.process_command_line then checks it "
+        "Values can be given as '--config FILE' or '--config=FILE', also with spaces around the equals sign "
+        "('--config= FILE', '--config =FILE', '--config = FILE'); parameter names are case-insensitive, values "
+        "are kept as given. app.process_command_line then checks it "
         "and returns a Startup object (run, help, version or error):")
     d.bullets([
         "Missing value (e.g. --config at the end, or followed by another parameter), a parameter given twice, "
@@ -427,7 +429,7 @@ dist\\TrademarkImage.exe [options] [IMAGE]
 
     d.h1("9. Tests")
     d.code(".venv\\Scripts\\python.exe -m pytest -q")
-    d.p("151 automated tests (tests directory) cover:")
+    d.p("162 automated tests (tests directory) cover:")
     d.bullets([
         "test_criteria.py - defaults, JSON round trip, partial files, every validation error.",
         "test_analyzer.py - mode classification, DPI reading and rounding, missing DPI, EXIF orientation, "
@@ -687,8 +689,9 @@ TrademarkImage.exe --locals sajat_szovegek.json
         ["--version", "Megjeleníti a verzióablakot (ugyanazt, mint a Névjegy gomb)."],
     ], widths=[110, 360])
     d.bullets([
-        "Az érték egyenlőségjellel is megadható (pl. --lang=en). A szóközt tartalmazó fájlneveket tegye "
-        "idézőjelek közé.",
+        "Az érték szóközzel vagy egyenlőségjellel adható meg; az egyenlőségjel körül szóköz is lehet: "
+        "--lang en, --lang=en, --lang = en. A szóközt tartalmazó fájlneveket tegye idézőjelek közé.",
+        "A paraméterek nevében a kis- és nagybetű nem számít (--LANG=en is jó).",
         "Az indítási könyvtár dupla kattintásos indításnál az exe mappája. Parancsikon esetén a parancsikon "
         "„Indítás helye” mezője adja meg.",
         "A súgó egy külön ablakban, a verziószám a Névjegy ablakban jelenik meg; ezután a program kilép.",
@@ -954,8 +957,9 @@ TrademarkImage.exe --locals my_texts.json
         ["--version", "Shows the version window (the same as the About button)."],
     ], widths=[110, 360])
     d.bullets([
-        "A value can also be given with an equals sign (e.g. --lang=en). Put file names containing spaces in "
-        "quotation marks.",
+        "A value can be given after a space or an equals sign, with or without spaces around it: --lang en, "
+        "--lang=en, --lang = en. Put file names containing spaces in quotation marks.",
+        "Parameter names are not case-sensitive (--LANG=en works too).",
         "When the program is started by double-click, the startup folder is the folder of the exe. For a "
         "shortcut it is the \"Start in\" field of the shortcut.",
         "The help is shown in a separate window and the version number in the About window; then the program "

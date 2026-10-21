@@ -62,20 +62,24 @@ def parse_args(argv: list[str]) -> Options:
         i += 1
         if not arg.strip():  # e.g. an empty "" in a shortcut
             continue
-        if arg in HELP_OPTIONS:
+        # Parameter names are case-insensitive; values (file names, codes) are kept as given.
+        if arg.lower() in HELP_OPTIONS:
             options.help = True
             continue
-        if arg == "--version":
+        if arg.lower() == "--version":
             options.version = True
             continue
         name, has_equals, value = arg.partition("=")
+        name, value = name.strip().lower(), value.strip()
         if name in VALUE_OPTIONS:
-            if not has_equals:
-                value = ""
-                if i < len(argv) and not argv[i].startswith("-"):
-                    value = argv[i]
-                    i += 1
-            if not value.strip():
+            # Accepted forms: --lang en, --lang=en, --lang= en, --lang =en, --lang = en
+            if not has_equals and i < len(argv) and argv[i].startswith("="):
+                value = argv[i][1:].strip()
+                i += 1
+            if not value and i < len(argv) and argv[i].strip() and not argv[i].startswith("-"):
+                value = argv[i].strip()
+                i += 1
+            if not value:
                 options.errors.append(("cli.error.missing_value", {"option": name, "expected": VALUE_OPTIONS[name]}))
             elif name in seen:
                 options.errors.append(("cli.error.duplicate", {"option": name}))

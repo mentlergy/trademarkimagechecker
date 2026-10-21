@@ -143,7 +143,8 @@ TrademarkImage.exe --locals my_texts.json
 | -h, --help | Shows the description of the parameters. In English: --lang en --help. |
 | --version | Shows the version window (the same as the About button). |
 
-- A value can also be given with an equals sign (e.g. --lang=en). Put file names containing spaces in quotation marks.
+- A value can be given after a space or an equals sign, with or without spaces around it: --lang en, --lang=en, --lang = en. Put file names containing spaces in quotation marks.
+- Parameter names are not case-sensitive (--LANG=en works too).
 - When the program is started by double-click, the startup folder is the folder of the exe. For a shortcut it is the "Start in" field of the shortcut.
 - The help is shown in a separate window and the version number in the About window; then the program exits.
 

@@ -41,16 +41,47 @@ def test_parse_equals_form_and_flags():
     assert parse_args(["/?"]).help
 
 
+@pytest.mark.parametrize("argv", [
+    ["--lang=en", "img.png"],
+    ["--lang", "en", "img.png"],
+    ["--lang=", "en", "img.png"],     # space after the equals sign
+    ["--lang", "=en", "img.png"],     # space before it
+    ["--lang", "=", "en", "img.png"],  # spaces on both sides
+    ["--LANG=en", "img.png"],         # parameter names are case-insensitive
+    ["--Lang", "en", "img.png"],
+])
+def test_parse_value_forms(argv):
+    options = parse_args(argv)
+    assert options.errors == []
+    assert options.lang == "en" and options.image == "img.png"
+
+
+def test_parse_value_forms_for_files():
+    options = parse_args(["--config=my criteria.json", "--locals", "=", "texts.json", "--CONFIG"])
+    assert options.config == "my criteria.json" and options.locals == "texts.json"
+    assert [key for key, _ in options.errors] == ["cli.error.missing_value"]
+    assert parse_args(["--HELP"]).help and parse_args(["--Version"]).version
+
+
 @pytest.mark.parametrize("argv, option", [
     (["--config"], "--config"),
     (["--config", "--lang", "en"], "--config"),
     (["--locals="], "--locals"),
+    (["--locals", "="], "--locals"),
+    (["--lang", "=", "--version"], "--lang"),
     (["--lang", ""], "--lang"),
     (["--lang", "-h"], "--lang"),
 ])
 def test_parse_missing_value(argv, option):
     errors = parse_args(argv).errors
     assert ("cli.error.missing_value", {"option": option, "expected": app.VALUE_OPTIONS[option]}) in errors
+
+
+def test_equals_form_end_to_end(hungarian, files):
+    result = process_command_line(["--config", "=", str(files["criteria"]), "--lang=", "en",
+                                   "--locals", f"={files['texts']}", str(files["image"])], cwd=files["dir"])
+    assert result.action == "run"
+    assert result.criteria.min_dpi == 300 and i18n.get_language() == "en"
 
 
 def test_parse_ignores_blank_arguments():
