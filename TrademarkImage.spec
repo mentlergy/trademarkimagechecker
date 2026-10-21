@@ -16,7 +16,7 @@ a = Analysis(
     ["run_trademarkimage.py"],
     pathex=[],
     binaries=dnd_binaries,
-    datas=dnd_datas,
+    datas=dnd_datas + [("trademarkimage/locals.json", "trademarkimage")],
     hiddenimports=dnd_hidden + ["PIL._tkinter_finder"],
     excludes=["pytest", "docx", "lxml", "numpy"],
     noarchive=False,

@@ -10,12 +10,21 @@ resolution, image type) and converts it to meet them.
 - Criteria are edited on the left panel, saved to / loaded from JSON. At start-up
   `criterias.json` in the current directory (or the file given with `--config`) is loaded.
 
+## Localization
+
+All texts are in [`trademarkimage/locals.json`](trademarkimage/locals.json) (Hungarian and English).
+Hungarian is the default; switch with the language selector in the window, with `--lang en`, or by
+changing `default_language`. To add a language, copy the `"en"` block under a new code and translate
+the values (keep the keys and `{placeholders}`). A `locals.json` in the startup directory (or the file
+given with `--locals`) is merged over the built-in texts, so the exe can be re-translated without
+rebuilding; missing texts fall back to English.
+
 ## Run from source
 
 ```powershell
 python -m venv .venv
 .venv\Scripts\python.exe -m pip install -r requirements-dev.txt
-.venv\Scripts\python.exe -m trademarkimage [--config FILE] [IMAGE]
+.venv\Scripts\python.exe -m trademarkimage [--config FILE] [--lang CODE] [--locals FILE] [IMAGE]
 ```
 
 ## Tests

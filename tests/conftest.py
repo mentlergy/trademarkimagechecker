@@ -7,6 +7,17 @@ from PIL import Image
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+from trademarkimage import i18n  # noqa: E402
+
+
+@pytest.fixture(autouse=True)
+def english():
+    """Most tests check English texts; tests of other languages switch explicitly."""
+    i18n.reset()
+    i18n.set_language("en")
+    yield
+    i18n.reset()
+
 
 @pytest.fixture
 def make_image(tmp_path):

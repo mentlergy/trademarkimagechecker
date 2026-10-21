@@ -9,7 +9,8 @@ from pathlib import Path
 
 from PIL import Image, ImageOps
 
-from .criteria import IMAGE_TYPES
+from .criteria import BYTES_PER_MB, IMAGE_TYPES, type_label
+from .i18n import tr
 
 
 class ConversionError(Exception):
@@ -19,18 +20,20 @@ class ConversionError(Exception):
 @dataclass(frozen=True)
 class SaveFormat:
     name: str  # Pillow format name
-    description: str
     extensions: tuple[str, ...]
     types: tuple[str, ...]  # image types the format can store
     lossy: bool = False
 
+    @property
+    def description(self) -> str:
+        return tr(f"format.{self.name}")
+
 
 SAVE_FORMATS: dict[str, SaveFormat] = {
-    "JPEG": SaveFormat("JPEG", "JPEG image", (".jpg", ".jpeg"), ("RGB", "greyscale", "CMYK"), lossy=True),
-    "PNG": SaveFormat("PNG", "PNG image", (".png",), ("RGB", "RGBA", "greyscale", "B&W", "palette")),
-    "TIFF": SaveFormat("TIFF", "TIFF image", (".tif", ".tiff"),
-                       ("RGB", "RGBA", "greyscale", "B&W", "CMYK", "palette")),
-    "BMP": SaveFormat("BMP", "Windows bitmap", (".bmp",), ("RGB", "greyscale", "B&W", "palette")),
+    "JPEG": SaveFormat("JPEG", (".jpg", ".jpeg"), ("RGB", "greyscale", "CMYK"), lossy=True),
+    "PNG": SaveFormat("PNG", (".png",), ("RGB", "RGBA", "greyscale", "B&W", "palette")),
+    "TIFF": SaveFormat("TIFF", (".tif", ".tiff"), ("RGB", "RGBA", "greyscale", "B&W", "CMYK", "palette")),
+    "BMP": SaveFormat("BMP", (".bmp",), ("RGB", "greyscale", "B&W", "palette")),
 }
 
 # Lowest JPEG quality tried when the file has to be made smaller.
@@ -48,6 +51,10 @@ def format_for_extension(path: str | Path) -> str | None:
 
 def is_compatible(fmt: str, image_type: str) -> bool:
     return fmt in SAVE_FORMATS and image_type in SAVE_FORMATS[fmt].types
+
+
+def compatible_formats(image_type: str) -> list[str]:
+    return [f for f in SAVE_FORMATS if is_compatible(f, image_type)]
 
 
 def default_save_format(original_format: str | None, image_type: str) -> str:
@@ -94,7 +101,7 @@ def _flatten_alpha(img: Image.Image) -> Image.Image:
 def prepare_image(img: Image.Image, settings: ConversionSettings) -> Image.Image:
     """Return a new image with the target size and type (without saving it)."""
     if settings.image_type not in IMAGE_TYPES:
-        raise ConversionError(f"Unknown image type: {settings.image_type}")
+        raise ConversionError(tr("convert.error.unknown_type", type=settings.image_type))
     target_mode = IMAGE_TYPES[settings.image_type]
 
     img = ImageOps.exif_transpose(img)
@@ -173,11 +180,10 @@ def convert_image(source: str | Path, settings: ConversionSettings, destination:
     destination = Path(destination)
     fmt = fmt or format_for_extension(destination)
     if fmt not in SAVE_FORMATS:
-        raise ConversionError(f"Unsupported output format: {destination.suffix or fmt}")
+        raise ConversionError(tr("convert.error.unsupported", format=destination.suffix or fmt))
     if not is_compatible(fmt, settings.image_type):
-        allowed = ", ".join(f for f in SAVE_FORMATS if is_compatible(f, settings.image_type))
-        raise ConversionError(
-            f"The {fmt} format cannot store '{settings.image_type}' images. Use one of: {allowed}.")
+        raise ConversionError(tr("convert.error.incompatible", format=fmt, type=type_label(settings.image_type),
+                                 formats=", ".join(compatible_formats(settings.image_type))))
 
     try:
         with Image.open(source) as src:
@@ -185,7 +191,7 @@ def convert_image(source: str | Path, settings: ConversionSettings, destination:
             original = src.copy()
         img = prepare_image(original, settings)
     except OSError as exc:
-        raise ConversionError(f"Cannot read source image: {exc}") from exc
+        raise ConversionError(tr("convert.error.read", error=exc)) from exc
 
     data, quality = _encode_within_limit(img, fmt, settings)
     width, height = img.size
@@ -194,9 +200,8 @@ def convert_image(source: str | Path, settings: ConversionSettings, destination:
         new_w = max(settings.min_width, int(width * factor))
         new_h = max(settings.min_height, int(height * factor))
         if (new_w, new_h) == (width, height) or new_w > width or new_h > height:
-            raise ConversionError(
-                f"The image cannot be saved as {fmt} under {settings.max_file_size / (1024 * 1024):.2f} MB "
-                f"without going below the minimum size. Try the JPEG format or another image type.")
+            raise ConversionError(tr("convert.error.too_big", format=fmt,
+                                     size=settings.max_file_size / BYTES_PER_MB))
         width, height = new_w, new_h
         smaller = prepare_image(original, ConversionSettings(width, height, settings.dpi, settings.image_type,
                                                         settings.max_file_size))
@@ -205,5 +210,5 @@ def convert_image(source: str | Path, settings: ConversionSettings, destination:
     try:
         destination.write_bytes(data)
     except OSError as exc:
-        raise ConversionError(f"Cannot write '{destination}': {exc}") from exc
+        raise ConversionError(tr("convert.error.write", path=destination, error=exc)) from exc
     return ConversionResult(destination, fmt, len(data), width, height, quality)

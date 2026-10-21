@@ -8,11 +8,13 @@ from tkinter import filedialog, messagebox, simpledialog, ttk
 
 from PIL import Image, ImageOps, ImageTk
 
-from . import APP_NAME
+from . import i18n
 from .analyzer import ImageError, Prop, analyze, check_image, describe_requirement, format_value
-from .converter import (SAVE_FORMATS, ConversionError, convert_image, default_save_format,
+from .converter import (SAVE_FORMATS, ConversionError, compatible_formats, convert_image, default_save_format,
                         format_for_extension, is_compatible)
-from .criteria import BYTES_PER_MB, IMAGE_TYPES, Criteria, CriteriaError, load_criteria, save_criteria
+from .criteria import (BYTES_PER_MB, IMAGE_TYPES, Criteria, CriteriaError, load_criteria, save_criteria,
+                       type_label)
+from .i18n import tr
 from .session import Session
 
 try:
@@ -24,8 +26,7 @@ except ImportError:  # pragma: no cover - the program still works with the Open 
 RED = "#c62828"
 GREEN = "#2e7d32"
 PREVIEW_SIZE = 280
-IMAGE_FILETYPES = [("Images", "*.jpg *.jpeg *.png *.tif *.tiff *.bmp *.gif *.webp"), ("All files", "*.*")]
-JSON_FILETYPES = [("JSON files", "*.json"), ("All files", "*.*")]
+IMAGE_PATTERNS = "*.jpg *.jpeg *.png *.tif *.tiff *.bmp *.gif *.webp"
 
 
 def create_root() -> tk.Tk:
@@ -45,6 +46,10 @@ def same_criteria(a: Criteria, b: Criteria) -> bool:
     return da == db
 
 
+def json_filetypes():
+    return [(tr("filetype.json"), "*.json"), (tr("filetype.all"), "*.*")]
+
+
 class ValueDialog(simpledialog.Dialog):
     """Asks for a new target value of one property and validates it."""
 
@@ -54,22 +59,26 @@ class ValueDialog(simpledialog.Dialog):
         self.value_var = tk.StringVar(parent)
         self.keep_aspect = tk.BooleanVar(parent, value=True)
         self.result = None
-        super().__init__(parent, title=f"Set {prop.label.lower()}")
+        super().__init__(parent, title=tr("dialog.value.title", label=prop.label))
 
     def body(self, master):
         prop, session = self.prop, self.session
         current = format_value(prop, session.info.value(prop))
-        ttk.Label(master, text=f"Current value: {current}").grid(row=0, column=0, columnspan=2, sticky="w")
-        ttk.Label(master, text=f"Requirement: {describe_requirement(prop, session.criteria)}").grid(
-            row=1, column=0, columnspan=2, sticky="w", pady=(0, 8))
+        ttk.Label(master, text=tr("dialog.value.current", value=current)).grid(
+            row=0, column=0, columnspan=3, sticky="w")
+        ttk.Label(master, text=tr("dialog.value.requirement",
+                                  requirement=describe_requirement(prop, session.criteria))).grid(
+            row=1, column=0, columnspan=3, sticky="w", pady=(0, 8))
 
         unit = {Prop.FILE_SIZE: "MB", Prop.WIDTH: "px", Prop.HEIGHT: "px", Prop.RESOLUTION: "DPI"}.get(prop, "")
-        ttk.Label(master, text="New value:").grid(row=2, column=0, sticky="w")
+        ttk.Label(master, text=tr("dialog.value.new")).grid(row=2, column=0, sticky="w")
         suggestion = session.suggestion(prop)
         if prop is Prop.IMAGE_TYPE:
-            self.value_var.set(suggestion)
+            # The list shows the localized names; they are mapped back to type ids in validate().
+            self.type_ids = {type_label(t): t for t in session.criteria.allowed_types}
+            self.value_var.set(type_label(suggestion))
             widget = ttk.Combobox(master, textvariable=self.value_var, state="readonly",
-                                  values=session.criteria.allowed_types, width=14)
+                                  values=list(self.type_ids), width=24)
         else:
             if prop is Prop.FILE_SIZE:
                 self.value_var.set(f"{suggestion / BYTES_PER_MB:g}")
@@ -80,18 +89,30 @@ class ValueDialog(simpledialog.Dialog):
         if unit:
             ttk.Label(master, text=unit).grid(row=2, column=2, sticky="w", padx=(4, 0))
         if prop in (Prop.WIDTH, Prop.HEIGHT):
-            ttk.Checkbutton(master, text="Keep aspect ratio (also changes the other dimension)",
-                            variable=self.keep_aspect).grid(row=3, column=0, columnspan=3, sticky="w", pady=(8, 0))
+            ttk.Checkbutton(master, text=tr("dialog.value.keep_aspect"), variable=self.keep_aspect).grid(
+                row=3, column=0, columnspan=3, sticky="w", pady=(8, 0))
         if prop is Prop.FILE_SIZE:
-            ttk.Label(master, text="The converter lowers the quality or the size to stay under this limit.",
-                      foreground="gray").grid(row=3, column=0, columnspan=3, sticky="w", pady=(8, 0))
+            ttk.Label(master, text=tr("dialog.value.file_size_hint"), foreground="gray").grid(
+                row=3, column=0, columnspan=3, sticky="w", pady=(8, 0))
         return widget
 
+    def buttonbox(self):
+        box = ttk.Frame(self)
+        ttk.Button(box, text=tr("button.ok"), width=10, command=self.ok, default="active").pack(
+            side="left", padx=5, pady=5)
+        ttk.Button(box, text=tr("button.cancel"), width=10, command=self.cancel).pack(side="left", padx=5, pady=5)
+        self.bind("<Return>", self.ok)
+        self.bind("<Escape>", self.cancel)
+        box.pack()
+
     def validate(self):
+        text = self.value_var.get()
+        if self.prop is Prop.IMAGE_TYPE:
+            text = self.type_ids.get(text, text)
         try:
-            self._value = self.session.parse_value(self.prop, self.value_var.get())
+            self._value = self.session.parse_value(self.prop, text)
         except ValueError as exc:
-            messagebox.showerror("Invalid value", str(exc), parent=self)
+            messagebox.showerror(tr("dialog.value.invalid_title"), str(exc), parent=self)
             return False
         return True
 
@@ -100,42 +121,35 @@ class ValueDialog(simpledialog.Dialog):
 
 
 class CriteriaPanel(ttk.LabelFrame):
-    FIELDS = [
-        ("max_file_size_mb", "Maximum file size (MB)"),
-        ("min_width", "Minimum width (px)"),
-        ("min_height", "Minimum height (px)"),
-        ("max_width", "Maximum width (px)"),
-        ("max_height", "Maximum height (px)"),
-        ("min_dpi", "Minimum resolution (DPI)"),
-    ]
+    FIELDS = ["max_file_size_mb", "min_width", "min_height", "max_width", "max_height", "min_dpi"]
 
     def __init__(self, parent, app: App):
-        super().__init__(parent, text="Criteria", padding=8)
+        super().__init__(parent, text=tr("criteria.title"), padding=8)
         self.app = app
-        self.vars = {name: tk.StringVar(self) for name, _ in self.FIELDS}
+        self.vars = {name: tk.StringVar(self) for name in self.FIELDS}
         self.type_vars = {name: tk.BooleanVar(self) for name in IMAGE_TYPES}
 
-        for row, (name, label) in enumerate(self.FIELDS):
-            ttk.Label(self, text=label).grid(row=row, column=0, sticky="w", pady=2)
+        for row, name in enumerate(self.FIELDS):
+            ttk.Label(self, text=tr(f"criteria.field.{name}")).grid(row=row, column=0, sticky="w", pady=2)
             ttk.Entry(self, textvariable=self.vars[name], width=10).grid(row=row, column=1, sticky="e", pady=2)
 
-        types = ttk.LabelFrame(self, text="Allowed image types", padding=4)
+        types = ttk.LabelFrame(self, text=tr("criteria.types_title"), padding=4)
         types.grid(row=len(self.FIELDS), column=0, columnspan=2, sticky="ew", pady=(8, 4))
         for i, name in enumerate(IMAGE_TYPES):
-            ttk.Checkbutton(types, text=name, variable=self.type_vars[name]).grid(
-                row=i // 2, column=i % 2, sticky="w", padx=(0, 12))
+            ttk.Checkbutton(types, text=type_label(name), variable=self.type_vars[name]).grid(
+                row=i, column=0, sticky="w")
 
         buttons = ttk.Frame(self)
         buttons.grid(row=len(self.FIELDS) + 1, column=0, columnspan=2, sticky="ew", pady=(8, 0))
-        ttk.Button(buttons, text="Apply", command=app.apply_criteria).pack(fill="x")
-        ttk.Button(buttons, text="Load criteria...", command=app.load_criteria_file).pack(fill="x", pady=(4, 0))
-        ttk.Button(buttons, text="Save criteria as...", command=app.save_criteria_file).pack(fill="x", pady=(4, 0))
+        ttk.Button(buttons, text=tr("criteria.apply"), command=app.apply_criteria).pack(fill="x")
+        ttk.Button(buttons, text=tr("criteria.load"), command=app.load_criteria_file).pack(fill="x", pady=(4, 0))
+        ttk.Button(buttons, text=tr("criteria.save"), command=app.save_criteria_file).pack(fill="x", pady=(4, 0))
 
-        self.source_label = ttk.Label(self, text="", foreground="gray", wraplength=220)
+        self.source_label = ttk.Label(self, text="", foreground="gray", wraplength=240)
         self.source_label.grid(row=len(self.FIELDS) + 2, column=0, columnspan=2, sticky="w", pady=(8, 0))
 
     def show(self, criteria: Criteria, source: str) -> None:
-        for name, _ in self.FIELDS:
+        for name in self.FIELDS:
             self.vars[name].set(f"{getattr(criteria, name):g}")
         for name, var in self.type_vars.items():
             var.set(name in criteria.allowed_types)
@@ -144,15 +158,16 @@ class CriteriaPanel(ttk.LabelFrame):
     def read(self) -> Criteria:
         """Build criteria from the input fields; raise CriteriaError if they are invalid."""
         data = {}
-        for name, label in self.FIELDS:
+        for name in self.FIELDS:
+            label = tr(f"criteria.field.{name}")
             text = self.vars[name].get().strip().replace(",", ".")
             try:
                 number = float(text)
             except ValueError:
-                raise CriteriaError(f"{label}: '{text}' is not a number.") from None
+                raise CriteriaError(tr("criteria.input.not_number", label=label, text=text)) from None
             if name not in ("max_file_size_mb", "min_dpi"):
                 if number != int(number):
-                    raise CriteriaError(f"{label} must be a whole number.")
+                    raise CriteriaError(tr("criteria.input.not_whole", label=label))
                 number = int(number)
             data[name] = number
         data["allowed_types"] = [name for name, var in self.type_vars.items() if var.get()]
@@ -166,20 +181,37 @@ class App:
         self.config_path = Path(config_path)
         self.session: Session | None = None
         self._preview = None
+        self.main: ttk.Frame | None = None
+        root.minsize(860, 580)
+        self.build_ui()
 
-        root.title(APP_NAME)
-        root.minsize(820, 560)
-        main = ttk.Frame(root, padding=10)
+    def build_ui(self) -> None:
+        """Create all widgets with the texts of the current language."""
+        if self.main is not None:
+            self.main.destroy()
+        root = self.root
+        root.title(tr("app.title"))
+        self.main = main = ttk.Frame(root, padding=10)
         main.pack(fill="both", expand=True)
         main.columnconfigure(1, weight=1)
-        main.rowconfigure(0, weight=1)
+        main.rowconfigure(1, weight=1)
+
+        language_bar = ttk.Frame(main)
+        language_bar.grid(row=0, column=0, columnspan=2, sticky="e", pady=(0, 6))
+        ttk.Label(language_bar, text=tr("language.label")).pack(side="left", padx=(0, 4))
+        self.language_names = i18n.languages()
+        self.language_var = tk.StringVar(main, value=self.language_names.get(i18n.get_language(), ""))
+        self.language_box = ttk.Combobox(language_bar, textvariable=self.language_var, state="readonly",
+                                         values=list(self.language_names.values()), width=14)
+        self.language_box.pack(side="left")
+        self.language_box.bind("<<ComboboxSelected>>", self._on_language_selected)
 
         self.criteria_panel = CriteriaPanel(main, self)
-        self.criteria_panel.grid(row=0, column=0, sticky="ns", padx=(0, 10))
-        self.criteria_panel.show(criteria, self._source_text())
+        self.criteria_panel.grid(row=1, column=0, sticky="ns", padx=(0, 10))
+        self.criteria_panel.show(self.criteria, self._source_text())
 
         right = ttk.Frame(main)
-        right.grid(row=0, column=1, sticky="nsew")
+        right.grid(row=1, column=1, sticky="nsew")
         right.columnconfigure(0, weight=1)
         right.rowconfigure(2, weight=1)
 
@@ -187,7 +219,7 @@ class App:
                                   height=14, compound="top", cursor="hand2")
         self.drop_zone.grid(row=0, column=0, sticky="ew")
         self.drop_zone.bind("<Button-1>", lambda _e: self.choose_image())
-        if DND_FILES is not None and hasattr(root, "drop_target_register"):
+        if self._dnd_available():
             self.drop_zone.drop_target_register(DND_FILES)
             self.drop_zone.dnd_bind("<<Drop>>", self._on_drop)
 
@@ -199,6 +231,26 @@ class App:
         self.prop_buttons: dict[Prop, tk.Button] = {}
         self.ok_button: tk.Button | None = None
         self.convert_button: ttk.Button | None = None
+
+        if self.session is not None:
+            self._show_preview(self.session.info.path)
+            self._show_info()
+            self.render_result()
+
+    # ----- language -----
+
+    def _on_language_selected(self, _event=None) -> None:
+        name = self.language_var.get()
+        code = next((c for c, n in self.language_names.items() if n == name), None)
+        if code:
+            self.set_language(code)
+
+    def set_language(self, code: str) -> None:
+        """Switch the user interface language; the current image and target values are kept."""
+        if code == i18n.get_language():
+            return
+        i18n.set_language(code)
+        self.build_ui()
 
     # ----- dialogs (separate methods so tests can replace them) -----
 
@@ -223,23 +275,24 @@ class App:
         source = self.session.info.path
         ext = SAVE_FORMATS[default_format].extensions[0]
         path = filedialog.asksaveasfilename(
-            parent=self.root, title="Save converted image", initialdir=str(source.parent),
-            initialfile=f"{source.stem}_converted{ext}", defaultextension=ext,
+            parent=self.root, title=tr("save.title"), initialdir=str(source.parent),
+            initialfile=f"{source.stem}{tr('save.suffix')}{ext}", defaultextension=ext,
             filetypes=filetypes, typevariable=type_var)
         chosen = next((f for f in order if SAVE_FORMATS[f].description == type_var.get()), default_format)
         return path, chosen
 
     # ----- image handling -----
 
+    def _dnd_available(self) -> bool:
+        return DND_FILES is not None and hasattr(self.root, "drop_target_register")
+
     def _drop_text(self) -> str:
-        if DND_FILES is not None and hasattr(self.root, "drop_target_register"):
-            return "Drag and drop an image here\n(or click to browse)"
-        return "Click here to open an image"
+        return tr("drop.dnd") if self._dnd_available() else tr("drop.click")
 
     def _source_text(self) -> str:
         if self.config_path.exists():
-            return f"Criteria file: {self.config_path}"
-        return f"Default criteria (save file: {self.config_path.name})"
+            return tr("criteria.source_file", path=self.config_path)
+        return tr("criteria.source_default", name=self.config_path.name)
 
     def _on_drop(self, event):
         files = self.root.tk.splitlist(event.data)
@@ -248,7 +301,9 @@ class App:
         return event.action
 
     def choose_image(self) -> None:
-        path = filedialog.askopenfilename(parent=self.root, title="Open image", filetypes=IMAGE_FILETYPES)
+        path = filedialog.askopenfilename(
+            parent=self.root, title=tr("dialog.open_image.title"),
+            filetypes=[(tr("filetype.images"), IMAGE_PATTERNS), (tr("filetype.all"), "*.*")])
         if path:
             self.open_image(path)
 
@@ -256,7 +311,7 @@ class App:
         try:
             info = analyze(path)
         except ImageError as exc:
-            self.show_error("Cannot open image", str(exc))
+            self.show_error(tr("image.error.title"), str(exc))
             return False
         self.session = Session(info, self.criteria)
         self._show_preview(info.path)
@@ -278,12 +333,11 @@ class App:
 
     def _show_info(self) -> None:
         info = self.session.info
-        dpi = f"{info.dpi[0]:g} x {info.dpi[1]:g} DPI" if info.dpi else "not set"
-        self.info_label.config(text=(
-            f"File: {info.path}\n"
-            f"Format: {info.format or 'unknown'}    Mode: {info.mode} ({info.image_type})\n"
-            f"Size: {info.width} x {info.height} px    Resolution: {dpi}    "
-            f"File size: {format_value(Prop.FILE_SIZE, info.file_size)}"))
+        dpi = tr("info.dpi", x=info.dpi[0], y=info.dpi[1]) if info.dpi else tr("value.not_set")
+        self.info_label.config(text=tr(
+            "info.text", path=info.path, format=info.format or tr("info.unknown_format"), mode=info.mode,
+            type=type_label(info.image_type), width=info.width, height=info.height, dpi=dpi,
+            size=format_value(Prop.FILE_SIZE, info.file_size)))
 
     def render_result(self) -> None:
         for child in self.result_frame.winfo_children():
@@ -297,20 +351,18 @@ class App:
 
         if session.passed:
             self.ok_button = tk.Button(
-                self.result_frame, text="OK - the image meets all criteria (click to exit)",
-                bg=GREEN, fg="white", activebackground=GREEN, activeforeground="white",
-                font=("Segoe UI", 12, "bold"), command=self.root.destroy, pady=10)
+                self.result_frame, text=tr("result.ok"), bg=GREEN, fg="white", activebackground=GREEN,
+                activeforeground="white", font=("Segoe UI", 12, "bold"), command=self.root.destroy, pady=10)
             self.ok_button.pack(fill="x")
             return
 
-        ttk.Label(self.result_frame, text="The image does not meet these criteria. "
-                                          "Click a red button to set a valid value:").pack(anchor="w", pady=(0, 4))
+        ttk.Label(self.result_frame, text=tr("result.failing"), wraplength=560).pack(anchor="w", pady=(0, 4))
         for prop in session.flagged:
             button = tk.Button(self.result_frame, anchor="w", padx=8, pady=4,
                                command=lambda p=prop: self.on_prop_button(p))
             button.pack(fill="x", pady=2)
             self.prop_buttons[prop] = button
-        self.convert_button = ttk.Button(self.result_frame, text="Convert and save...", command=self.convert_and_save)
+        self.convert_button = ttk.Button(self.result_frame, text=tr("result.convert"), command=self.convert_and_save)
         self.convert_button.pack(anchor="e", pady=(8, 0))
         self.update_buttons()
 
@@ -337,7 +389,7 @@ class App:
         try:
             self.session.set_target(prop, value, keep_aspect)
         except ValueError as exc:
-            self.show_error("Invalid value", str(exc))
+            self.show_error(tr("dialog.value.invalid_title"), str(exc))
             return
         self.update_buttons()
         if self.session.all_valid:
@@ -358,28 +410,28 @@ class App:
                 path = path.with_name(path.name + SAVE_FORMATS[fmt].extensions[0])
             if is_compatible(fmt, settings.image_type):
                 break
-            allowed = ", ".join(f for f in SAVE_FORMATS if is_compatible(f, settings.image_type))
-            self.show_error("Unsuitable format",
-                            f"The {fmt} format cannot store '{settings.image_type}' images.\n"
-                            f"Please choose one of: {allowed}.")
+            self.show_error(tr("save.unsuitable.title"),
+                            tr("save.unsuitable.text", format=fmt, type=type_label(settings.image_type),
+                               formats=", ".join(compatible_formats(settings.image_type))))
             default_format = default_save_format(None, settings.image_type)
 
         try:
             result = convert_image(session.info.path, settings, path, fmt)
             new_info = analyze(result.path)
         except (ConversionError, ImageError) as exc:
-            self.show_error("Conversion failed", str(exc))
+            self.show_error(tr("convert.failed.title"), str(exc))
             return
 
         failures = check_image(new_info, self.criteria)
-        quality = f", JPEG quality {result.quality}" if result.quality else ""
-        summary = (f"Saved: {result.path}\n{result.width} x {result.height} px, "
-                   f"{format_value(Prop.FILE_SIZE, result.file_size)}{quality}")
+        quality = tr("convert.quality", quality=result.quality) if result.quality else ""
+        summary = tr("convert.summary", path=result.path, width=result.width, height=result.height,
+                     size=format_value(Prop.FILE_SIZE, result.file_size), quality=quality)
         if failures:
-            self.show_error("Converted image still fails",
-                            summary + "\n\nNot met: " + ", ".join(p.label for p in failures))
+            self.show_error(tr("convert.still_fails.title"),
+                            tr("convert.still_fails.text", summary=summary,
+                               props=", ".join(p.label for p in failures)))
         else:
-            self.show_info("Conversion done", summary + "\n\nThe converted image meets all criteria.")
+            self.show_info(tr("convert.done.title"), tr("convert.done.text", summary=summary))
         self.open_image(result.path)
 
     # ----- criteria handling -----
@@ -394,28 +446,28 @@ class App:
         try:
             criteria = self.criteria_panel.read()
         except CriteriaError as exc:
-            self.show_error("Invalid criteria", str(exc))
+            self.show_error(tr("criteria.invalid.title"), str(exc))
             return
         if same_criteria(criteria, self.criteria):
             return
         self._set_criteria(criteria)
-        if self.ask_yes_no("Save criteria", "The criteria have changed. Do you want to save them to a file?"):
+        if self.ask_yes_no(tr("criteria.save_question.title"), tr("criteria.save_question.text")):
             self.save_criteria_file()
 
     def ask_criteria_save_path(self) -> str:
         return filedialog.asksaveasfilename(
-            parent=self.root, title="Save criteria", initialdir=str(self.config_path.parent),
-            initialfile=self.config_path.name, defaultextension=".json", filetypes=JSON_FILETYPES)
+            parent=self.root, title=tr("criteria.save_dialog.title"), initialdir=str(self.config_path.parent),
+            initialfile=self.config_path.name, defaultextension=".json", filetypes=json_filetypes())
 
     def ask_criteria_open_path(self) -> str:
-        return filedialog.askopenfilename(parent=self.root, title="Load criteria",
-                                          initialdir=str(self.config_path.parent), filetypes=JSON_FILETYPES)
+        return filedialog.askopenfilename(parent=self.root, title=tr("criteria.load_dialog.title"),
+                                          initialdir=str(self.config_path.parent), filetypes=json_filetypes())
 
     def save_criteria_file(self) -> None:
         try:
             criteria = self.criteria_panel.read()
         except CriteriaError as exc:
-            self.show_error("Invalid criteria", str(exc))
+            self.show_error(tr("criteria.invalid.title"), str(exc))
             return
         path = self.ask_criteria_save_path()
         if not path:
@@ -423,7 +475,7 @@ class App:
         try:
             save_criteria(criteria, path)
         except (OSError, CriteriaError) as exc:
-            self.show_error("Cannot save criteria", str(exc))
+            self.show_error(tr("criteria.save_error.title"), str(exc))
             return
         self.config_path = Path(path)
         self._set_criteria(criteria)
@@ -435,7 +487,7 @@ class App:
         try:
             criteria = load_criteria(path)
         except CriteriaError as exc:
-            self.show_error("Cannot load criteria", str(exc))
+            self.show_error(tr("criteria.load_error.title"), str(exc))
             return
         self.config_path = Path(path)
         self._set_criteria(criteria)

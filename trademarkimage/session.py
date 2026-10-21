@@ -7,6 +7,7 @@ import math
 from .analyzer import ImageInfo, Prop, check_image, check_value, describe_requirement, format_value
 from .converter import ConversionSettings
 from .criteria import BYTES_PER_MB, Criteria
+from .i18n import tr
 
 
 class Session:
@@ -44,9 +45,12 @@ class Session:
         original = format_value(prop, self.info.value(prop))
         if self.is_valid(prop):
             if prop is Prop.FILE_SIZE:
-                return f"{prop.label}: {original} -> at most {self.targets[prop] / BYTES_PER_MB:.2f} MB"
-            return f"{prop.label}: {original} -> {format_value(prop, self.targets[prop])}"
-        return f"{prop.label}: {original}  ({describe_requirement(prop, self.criteria)})"
+                return tr("session.button.file_size_target", label=prop.label, original=original,
+                          target=self.targets[prop] / BYTES_PER_MB)
+            return tr("session.button.fixed", label=prop.label, original=original,
+                      target=format_value(prop, self.targets[prop]))
+        return tr("session.button.failing", label=prop.label, original=original,
+                  requirement=describe_requirement(prop, self.criteria))
 
     def parse_value(self, prop: Prop, text: str):
         """Convert user input into a target value; raise ValueError with a message if invalid."""
@@ -59,16 +63,20 @@ class Session:
             else:
                 value = int(text)
         except ValueError:
-            raise ValueError(f"'{text}' is not a valid number.") from None
+            raise ValueError(tr("session.error.not_number", text=text)) from None
         if not check_value(prop, value, self.criteria):
-            raise ValueError(f"{prop.label} must be {describe_requirement(prop, self.criteria)}.")
+            raise ValueError(self._requirement_error(prop))
         return value
+
+    def _requirement_error(self, prop: Prop) -> str:
+        return tr("session.error.requirement", label=prop.label,
+                  requirement=describe_requirement(prop, self.criteria))
 
     def set_target(self, prop: Prop, value, keep_aspect: bool = False) -> None:
         """Set a valid target value. With keep_aspect, changing width or height
         also changes the other dimension proportionally."""
         if not check_value(prop, value, self.criteria):
-            raise ValueError(f"{prop.label} must be {describe_requirement(prop, self.criteria)}.")
+            raise ValueError(self._requirement_error(prop))
         self.targets[prop] = value
         if keep_aspect and prop in (Prop.WIDTH, Prop.HEIGHT):
             other = Prop.HEIGHT if prop is Prop.WIDTH else Prop.WIDTH
@@ -114,7 +122,7 @@ class Session:
 
     def conversion_settings(self) -> ConversionSettings:
         if not self.all_valid:
-            raise ValueError("Not all properties have valid target values.")
+            raise ValueError(tr("session.error.not_all_valid"))
         resolution = self.targets[Prop.RESOLUTION]
         dpi = round(resolution)
         if dpi < self.criteria.min_dpi:

@@ -32,4 +32,6 @@ Write-Host "Building executable"
 if ($LASTEXITCODE) { throw "PyInstaller failed." }
 
 Copy-Item criterias.example.json dist\criterias.example.json -Force
+# Editable copy of the texts: a locals.json next to the exe overrides the built-in one.
+Copy-Item trademarkimage\locals.json dist\locals.json -Force
 Write-Host "Done: $(Join-Path $PSScriptRoot 'dist\TrademarkImage.exe')"

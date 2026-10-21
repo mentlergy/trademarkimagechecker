@@ -8,7 +8,8 @@ from pathlib import Path
 
 from PIL import Image, ImageOps, UnidentifiedImageError
 
-from .criteria import BYTES_PER_MB, Criteria
+from .criteria import BYTES_PER_MB, Criteria, type_label
+from .i18n import tr
 
 _MODE_TYPES = {
     "1": "B&W",
@@ -42,16 +43,7 @@ class Prop(str, Enum):
 
     @property
     def label(self) -> str:
-        return _PROP_LABELS[self]
-
-
-_PROP_LABELS = {
-    Prop.FILE_SIZE: "File size",
-    Prop.WIDTH: "Width",
-    Prop.HEIGHT: "Height",
-    Prop.RESOLUTION: "Resolution",
-    Prop.IMAGE_TYPE: "Image type",
-}
+        return tr(f"prop.{self.value}")
 
 
 class ImageError(Exception):
@@ -128,11 +120,11 @@ def analyze(path: str | Path) -> ImageInfo:
             oriented = ImageOps.exif_transpose(img)
             width, height = oriented.size
     except FileNotFoundError as exc:
-        raise ImageError(f"File not found: {path}") from exc
+        raise ImageError(tr("image.error.not_found", path=path)) from exc
     except UnidentifiedImageError as exc:
-        raise ImageError(f"Not a recognised image file: {path.name}") from exc
+        raise ImageError(tr("image.error.unrecognised", name=path.name)) from exc
     except (OSError, ValueError, Image.DecompressionBombError) as exc:
-        raise ImageError(f"Cannot read image '{path.name}': {exc}") from exc
+        raise ImageError(tr("image.error.read", name=path.name, error=exc)) from exc
     return ImageInfo(path, fmt, file_size, width, height, dpi, mode)
 
 
@@ -158,23 +150,23 @@ def check_image(info: ImageInfo, criteria: Criteria) -> list[Prop]:
 
 def format_value(prop: Prop, value) -> str:
     if value is None:
-        return "not set"
+        return tr("value.not_set")
     if prop is Prop.FILE_SIZE:
-        return f"{value / BYTES_PER_MB:.2f} MB"
+        return tr("value.mb", value=value / BYTES_PER_MB)
     if prop in (Prop.WIDTH, Prop.HEIGHT):
-        return f"{value} px"
+        return tr("value.px", value=value)
     if prop is Prop.RESOLUTION:
-        return f"{value:g} DPI"
-    return str(value)
+        return tr("value.dpi", value=value)
+    return type_label(value)
 
 
 def describe_requirement(prop: Prop, criteria: Criteria) -> str:
     if prop is Prop.FILE_SIZE:
-        return f"max {criteria.max_file_size_mb:g} MB"
+        return tr("requirement.file_size", max=criteria.max_file_size_mb)
     if prop is Prop.WIDTH:
-        return f"{criteria.min_width}-{criteria.max_width} px"
+        return tr("requirement.range_px", min=criteria.min_width, max=criteria.max_width)
     if prop is Prop.HEIGHT:
-        return f"{criteria.min_height}-{criteria.max_height} px"
+        return tr("requirement.range_px", min=criteria.min_height, max=criteria.max_height)
     if prop is Prop.RESOLUTION:
-        return f"min {criteria.min_dpi:g} DPI"
-    return "allowed: " + ", ".join(criteria.allowed_types)
+        return tr("requirement.resolution", min=criteria.min_dpi)
+    return tr("requirement.types", types=", ".join(type_label(t) for t in criteria.allowed_types))

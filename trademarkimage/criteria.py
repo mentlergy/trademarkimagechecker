@@ -6,6 +6,8 @@ import json
 from dataclasses import asdict, dataclass, field, fields
 from pathlib import Path
 
+from .i18n import tr
+
 DEFAULT_CONFIG_NAME = "criterias.json"
 
 BYTES_PER_MB = 1024 * 1024
@@ -22,6 +24,11 @@ IMAGE_TYPES: dict[str, str] = {
     "palette": "P",
 }
 DEFAULT_ALLOWED_TYPES = ("RGB", "greyscale", "B&W", "CMYK")
+
+
+def type_label(image_type: str) -> str:
+    """The localized display name of an image type."""
+    return tr(f"type.{image_type}")
 
 
 class CriteriaError(ValueError):
@@ -46,21 +53,21 @@ class Criteria:
         """Return a list of human readable problems; empty if the criteria are valid."""
         problems = []
         if self.max_file_size_mb <= 0:
-            problems.append("Maximum file size must be greater than 0.")
+            problems.append(tr("criteria.error.max_size"))
         for name in ("min_width", "min_height", "max_width", "max_height"):
             if getattr(self, name) < 1:
-                problems.append(f"{name} must be at least 1 pixel.")
+                problems.append(tr("criteria.error.min_pixel", field=tr(f"criteria.field.{name}")))
         if self.min_width > self.max_width:
-            problems.append("Minimum width is greater than maximum width.")
+            problems.append(tr("criteria.error.width_range"))
         if self.min_height > self.max_height:
-            problems.append("Minimum height is greater than maximum height.")
+            problems.append(tr("criteria.error.height_range"))
         if self.min_dpi < 0:
-            problems.append("Minimum resolution cannot be negative.")
+            problems.append(tr("criteria.error.negative_dpi"))
         if not self.allowed_types:
-            problems.append("At least one image type must be allowed.")
+            problems.append(tr("criteria.error.no_types"))
         unknown = [t for t in self.allowed_types if t not in IMAGE_TYPES]
         if unknown:
-            problems.append(f"Unknown image type(s): {', '.join(unknown)}.")
+            problems.append(tr("criteria.error.unknown_types", types=", ".join(unknown)))
         return problems
 
     def validate(self) -> None:
@@ -75,25 +82,25 @@ class Criteria:
     def from_dict(cls, data: dict) -> Criteria:
         """Build criteria from a dict. Missing keys fall back to the defaults."""
         if not isinstance(data, dict):
-            raise CriteriaError("The criteria file must contain a JSON object.")
+            raise CriteriaError(tr("criteria.error.not_object"))
         known = {f.name: f for f in fields(cls)}
         unknown = sorted(set(data) - set(known))
         if unknown:
-            raise CriteriaError(f"Unknown key(s) in criteria: {', '.join(unknown)}.")
+            raise CriteriaError(tr("criteria.error.unknown_keys", keys=", ".join(unknown)))
 
         values = {}
         for name, value in data.items():
             if name == "allowed_types":
                 if not isinstance(value, list) or not all(isinstance(v, str) for v in value):
-                    raise CriteriaError("allowed_types must be a list of strings.")
+                    raise CriteriaError(tr("criteria.error.types_list"))
                 values[name] = list(value)
             elif name in ("max_file_size_mb", "min_dpi"):
                 if isinstance(value, bool) or not isinstance(value, (int, float)):
-                    raise CriteriaError(f"{name} must be a number.")
+                    raise CriteriaError(tr("criteria.error.not_number", name=name))
                 values[name] = float(value)
             else:
                 if isinstance(value, bool) or not isinstance(value, (int, float)) or int(value) != value:
-                    raise CriteriaError(f"{name} must be a whole number.")
+                    raise CriteriaError(tr("criteria.error.not_whole", name=name))
                 values[name] = int(value)
         criteria = cls(**values)
         criteria.validate()
@@ -105,11 +112,11 @@ def load_criteria(path: str | Path) -> Criteria:
     try:
         text = path.read_text(encoding="utf-8")
     except OSError as exc:
-        raise CriteriaError(f"Cannot read criteria file '{path}': {exc}") from exc
+        raise CriteriaError(tr("criteria.error.read", path=path, error=exc)) from exc
     try:
         data = json.loads(text)
     except json.JSONDecodeError as exc:
-        raise CriteriaError(f"Invalid JSON in '{path}': {exc}") from exc
+        raise CriteriaError(tr("criteria.error.json", path=path, error=exc)) from exc
     return Criteria.from_dict(data)
 
 
