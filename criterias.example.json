@@ -1,0 +1,14 @@
+{
+  "max_file_size_mb": 2.0,
+  "min_width": 945,
+  "min_height": 945,
+  "max_width": 2835,
+  "max_height": 2010,
+  "min_dpi": 96.0,
+  "allowed_types": [
+    "RGB",
+    "greyscale",
+    "B&W",
+    "CMYK"
+  ]
+}
